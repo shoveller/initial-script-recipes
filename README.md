@@ -1,5 +1,5 @@
 # 다운로드
-curl -L -o prj.sh https://gist.githubusercontent.com/shoveller/a5189e4fbc6a19f039559d51de8383f7/raw
+curl -L -o prj.sh https://raw.githubusercontent.com/shoveller/react-router-recipe/main/prj.sh
 
 # 실행권한 부여
 chmod +x prj.sh
