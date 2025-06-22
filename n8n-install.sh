@@ -33,7 +33,7 @@ fi
 # 시스템 업데이트 및 기본 패키지 설치
 log "시스템 업데이트 및 기본 패키지 설치 중..."
 apt update && apt upgrade -y
-apt install -y curl wget git nano unzip apt-transport-https ca-certificates gnupg lsb-release
+apt install -y curl wget git nano unzip apt-transport-https ca-certificates gnupg lsb-release python3 python3-pip
 
 # 관리자 패스워드 설정
 setup_admin_password() {
@@ -549,6 +549,367 @@ EOF
     log "설정 변경 스크립트 생성 완료"
 }
 
+# AWS CLI 설치 및 S3 백업 설정
+setup_aws_backup() {
+    echo ""
+    read -p "S3 백업 기능을 설정하시겠습니까? (y/n): " setup_backup
+    
+    if [[ "$setup_backup" =~ ^[Yy]$ ]]; then
+        log "AWS CLI 설치 및 S3 백업 설정 중..."
+        
+        # AWS CLI v2 설치
+        log "AWS CLI 설치 중..."
+        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+        unzip -q awscliv2.zip
+        ./aws/install
+        rm -rf awscliv2.zip aws/
+        log "AWS CLI 설치 완료: $(aws --version)"
+        
+        # AWS 자격 증명 설정
+        log "AWS 자격 증명 설정..."
+        echo "AWS IAM 사용자의 자격 증명을 입력하세요."
+        echo "백업을 위해서는 S3에 대한 읽기/쓰기 권한이 필요합니다."
+        echo ""
+        
+        read -p "AWS Access Key ID: " AWS_ACCESS_KEY_ID
+        read -sp "AWS Secret Access Key: " AWS_SECRET_ACCESS_KEY
+        echo
+        read -p "Default region (예: ap-northeast-2): " AWS_DEFAULT_REGION
+        
+        # 기본값 설정
+        AWS_DEFAULT_OUTPUT="json"
+        
+        # AWS 자격 증명 파일 생성
+        sudo -u $SUDO_USER mkdir -p /home/$SUDO_USER/.aws
+        
+        cat > /home/$SUDO_USER/.aws/credentials << EOF
+[default]
+aws_access_key_id = $AWS_ACCESS_KEY_ID
+aws_secret_access_key = $AWS_SECRET_ACCESS_KEY
+EOF
+        
+        cat > /home/$SUDO_USER/.aws/config << EOF
+[default]
+region = $AWS_DEFAULT_REGION
+output = $AWS_DEFAULT_OUTPUT
+EOF
+        
+        # 권한 설정
+        chown -R $SUDO_USER:$SUDO_USER /home/$SUDO_USER/.aws
+        chmod 600 /home/$SUDO_USER/.aws/credentials
+        chmod 600 /home/$SUDO_USER/.aws/config
+        
+        # S3 버킷 설정
+        log "S3 버킷 설정..."
+        read -p "백업용 S3 버킷 이름을 입력하세요 (예: my-n8n-backup): " S3_BUCKET_NAME
+        
+        # 버킷 존재 여부 확인 및 생성
+        if sudo -u $SUDO_USER aws s3 ls "s3://$S3_BUCKET_NAME" 2>/dev/null; then
+            log "S3 버킷 '$S3_BUCKET_NAME'이 이미 존재합니다."
+        else
+            log "S3 버킷 '$S3_BUCKET_NAME'을 생성합니다..."
+            if sudo -u $SUDO_USER aws s3 mb "s3://$S3_BUCKET_NAME"; then
+                log "S3 버킷 생성 완료"
+            else
+                warn "S3 버킷 생성에 실패했습니다. 수동으로 생성하거나 권한을 확인하세요."
+            fi
+        fi
+        
+        # 버킷 이름을 환경 변수 파일에 저장
+        echo "S3_BUCKET_NAME=$S3_BUCKET_NAME" > /home/$SUDO_USER/.s3-backup-config
+        chown $SUDO_USER:$SUDO_USER /home/$SUDO_USER/.s3-backup-config
+        
+        # AWS CLI 연결 테스트
+        log "AWS CLI 연결 테스트 중..."
+        if sudo -u $SUDO_USER aws sts get-caller-identity > /dev/null 2>&1; then
+            log "AWS CLI 연결 테스트 성공"
+        else
+            warn "AWS CLI 연결 테스트 실패. 나중에 자격 증명을 확인하세요."
+        fi
+        
+        # 백업 스크립트 생성
+        create_backup_scripts
+        
+        log "AWS CLI 및 S3 백업 설정 완료"
+    else
+        log "S3 백업 설정을 건너뜁니다."
+    fi
+}
+
+# 백업 스크립트 생성
+create_backup_scripts() {
+    log "백업 스크립트 생성 중..."
+    
+    # n8n 백업 스크립트 생성
+    cat > /home/$SUDO_USER/backup-n8n-s3.sh << 'EOF'
+#!/bin/bash
+
+# n8n 데이터 S3 백업 스크립트
+
+# 색상 정의
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NC='\033[0m'
+
+log() {
+    echo -e "${GREEN}[INFO]${NC} $(date '+%Y-%m-%d %H:%M:%S') - $1"
+}
+
+warn() {
+    echo -e "${YELLOW}[WARN]${NC} $(date '+%Y-%m-%d %H:%M:%S') - $1"
+}
+
+error() {
+    echo -e "${RED}[ERROR]${NC} $(date '+%Y-%m-%d %H:%M:%S') - $1"
+    exit 1
+}
+
+# 설정 파일 로드
+if [ -f "$HOME/.s3-backup-config" ]; then
+    source "$HOME/.s3-backup-config"
+else
+    error "S3 백업 설정 파일을 찾을 수 없습니다: $HOME/.s3-backup-config"
+fi
+
+# AWS CLI 연결 확인
+if ! aws sts get-caller-identity > /dev/null 2>&1; then
+    error "AWS CLI 인증 실패. 자격 증명을 확인하세요."
+fi
+
+log "n8n S3 백업 시작..."
+
+# 백업 파일 이름 생성
+TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
+
+# n8n 데이터 백업
+if [ -d "$HOME/docker/n8n/n8n_data" ]; then
+    log "n8n 데이터 백업 중..."
+    cd "$HOME/docker/n8n"
+    tar -czf "/tmp/n8n_data_backup_${TIMESTAMP}.tar.gz" n8n_data/
+    
+    # S3에 업로드
+    aws s3 cp "/tmp/n8n_data_backup_${TIMESTAMP}.tar.gz" "s3://$S3_BUCKET_NAME/n8n-backups/"
+    rm "/tmp/n8n_data_backup_${TIMESTAMP}.tar.gz"
+    log "n8n 데이터 백업 완료"
+fi
+
+# PostgreSQL 데이터 백업
+if docker ps | grep -q "n8n-db"; then
+    log "PostgreSQL 데이터 백업 중..."
+    
+    # 환경 변수 로드
+    source "$HOME/docker/n8n/.env"
+    
+    # PostgreSQL 덤프
+    docker exec n8n-db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" | gzip > "/tmp/postgres_backup_${TIMESTAMP}.sql.gz"
+    
+    # S3에 업로드
+    aws s3 cp "/tmp/postgres_backup_${TIMESTAMP}.sql.gz" "s3://$S3_BUCKET_NAME/postgres-backups/"
+    rm "/tmp/postgres_backup_${TIMESTAMP}.sql.gz"
+    log "PostgreSQL 백업 완료"
+fi
+
+# 30일 이상 된 백업 파일 정리
+log "오래된 백업 파일 정리 중..."
+CLEANUP_DATE=$(date -d "30 days ago" '+%Y-%m-%d')
+
+aws s3 ls "s3://$S3_BUCKET_NAME/n8n-backups/" | while read -r line; do
+    backup_date=$(echo $line | awk '{print $1}')
+    backup_file=$(echo $line | awk '{print $4}')
+    
+    if [[ "$backup_date" < "$CLEANUP_DATE" ]] && [[ -n "$backup_file" ]]; then
+        log "오래된 백업 파일 삭제: $backup_file"
+        aws s3 rm "s3://$S3_BUCKET_NAME/n8n-backups/$backup_file"
+    fi
+done
+
+aws s3 ls "s3://$S3_BUCKET_NAME/postgres-backups/" | while read -r line; do
+    backup_date=$(echo $line | awk '{print $1}')
+    backup_file=$(echo $line | awk '{print $4}')
+    
+    if [[ "$backup_date" < "$CLEANUP_DATE" ]] && [[ -n "$backup_file" ]]; then
+        log "오래된 백업 파일 삭제: $backup_file"
+        aws s3 rm "s3://$S3_BUCKET_NAME/postgres-backups/$backup_file"
+    fi
+done
+
+log "n8n S3 백업 완료!"
+EOF
+    
+    # 복원 스크립트 생성
+    cat > /home/$SUDO_USER/restore-n8n-s3.sh << 'EOF'
+#!/bin/bash
+
+# n8n 데이터 S3 복원 스크립트
+
+# 색상 정의
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+log() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+    exit 1
+}
+
+# 설정 파일 로드
+if [ -f "$HOME/.s3-backup-config" ]; then
+    source "$HOME/.s3-backup-config"
+else
+    error "S3 백업 설정 파일을 찾을 수 없습니다"
+fi
+
+echo -e "${RED}경고: 이 작업은 기존 n8n 데이터를 완전히 대체합니다!${NC}"
+read -p "정말로 복원을 진행하시겠습니까? (yes/no): " confirm
+
+if [[ "$confirm" != "yes" ]]; then
+    log "복원이 취소되었습니다."
+    exit 0
+fi
+
+# 사용 가능한 백업 목록 표시
+echo -e "${BLUE}사용 가능한 백업 목록:${NC}"
+echo "=== n8n 데이터 백업 ==="
+aws s3 ls "s3://$S3_BUCKET_NAME/n8n-backups/" --human-readable | tail -10
+echo "=== PostgreSQL 백업 ==="
+aws s3 ls "s3://$S3_BUCKET_NAME/postgres-backups/" --human-readable | tail -10
+
+echo ""
+read -p "최신 백업으로 복원하시겠습니까? (y/n): " use_latest
+
+if [[ "$use_latest" =~ ^[Yy]$ ]]; then
+    # 최신 백업 파일 선택
+    N8N_BACKUP_FILE=$(aws s3 ls "s3://$S3_BUCKET_NAME/n8n-backups/" | grep "\.tar\.gz$" | sort | tail -1 | awk '{print $4}')
+    POSTGRES_BACKUP_FILE=$(aws s3 ls "s3://$S3_BUCKET_NAME/postgres-backups/" | grep "\.sql\.gz$" | sort | tail -1 | awk '{print $4}')
+else
+    read -p "n8n 백업 파일명을 입력하세요: " N8N_BACKUP_FILE
+    read -p "PostgreSQL 백업 파일명을 입력하세요: " POSTGRES_BACKUP_FILE
+fi
+
+# 컨테이너 중지
+log "n8n 컨테이너 중지 중..."
+cd "$HOME/docker/n8n" && docker-compose down
+
+# n8n 데이터 복원
+if [ -n "$N8N_BACKUP_FILE" ]; then
+    log "n8n 데이터 복원 중..."
+    aws s3 cp "s3://$S3_BUCKET_NAME/n8n-backups/$N8N_BACKUP_FILE" "/tmp/"
+    
+    rm -rf "$HOME/docker/n8n/n8n_data"
+    cd "$HOME/docker/n8n"
+    tar -xzf "/tmp/$N8N_BACKUP_FILE"
+    rm "/tmp/$N8N_BACKUP_FILE"
+    log "n8n 데이터 복원 완료"
+fi
+
+# PostgreSQL 데이터 복원
+if [ -n "$POSTGRES_BACKUP_FILE" ]; then
+    log "PostgreSQL 데이터 복원 중..."
+    aws s3 cp "s3://$S3_BUCKET_NAME/postgres-backups/$POSTGRES_BACKUP_FILE" "/tmp/"
+    
+    # PostgreSQL만 시작
+    docker-compose up -d postgres
+    sleep 10
+    
+    # 환경 변수 로드
+    source "$HOME/docker/n8n/.env"
+    
+    # 데이터베이스 초기화 및 복원
+    docker exec n8n-db psql -U "$POSTGRES_USER" -c "DROP DATABASE IF EXISTS $POSTGRES_DB;"
+    docker exec n8n-db psql -U "$POSTGRES_USER" -c "CREATE DATABASE $POSTGRES_DB;"
+    
+    gunzip -c "/tmp/$POSTGRES_BACKUP_FILE" | docker exec -i n8n-db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+    rm "/tmp/$POSTGRES_BACKUP_FILE"
+    log "PostgreSQL 데이터 복원 완료"
+fi
+
+# 모든 서비스 재시작
+log "n8n 서비스 재시작 중..."
+docker-compose up -d
+
+log "복원이 완료되었습니다!"
+EOF
+    
+    # 백업 관리 스크립트 생성
+    cat > /home/$SUDO_USER/manage-backup.sh << 'EOF'
+#!/bin/bash
+
+# n8n 백업 관리 스크립트
+
+# 색상 정의
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+while true; do
+    echo -e "${BLUE}=== n8n 백업 관리 ===${NC}"
+    echo "1) 즉시 백업 실행"
+    echo "2) S3 백업 목록 확인"
+    echo "3) 데이터 복원"
+    echo "4) 자동 백업 설정"
+    echo "5) 종료"
+    echo ""
+    
+    read -p "선택 (1-5): " choice
+    
+    case $choice in
+        1)
+            echo -e "${GREEN}백업을 실행합니다...${NC}"
+            $HOME/backup-n8n-s3.sh
+            ;;
+        2)
+            if [ -f "$HOME/.s3-backup-config" ]; then
+                source "$HOME/.s3-backup-config"
+                echo -e "${GREEN}S3 백업 목록:${NC}"
+                aws s3 ls "s3://$S3_BUCKET_NAME/" --recursive --human-readable
+            else
+                echo "S3 설정을 찾을 수 없습니다."
+            fi
+            ;;
+        3)
+            echo -e "${GREEN}데이터 복원을 시작합니다...${NC}"
+            $HOME/restore-n8n-s3.sh
+            ;;
+        4)
+            echo "자동 백업 설정 (매일 새벽 2시)"
+            (crontab -l 2>/dev/null; echo "0 2 * * * $HOME/backup-n8n-s3.sh >> $HOME/backup.log 2>&1") | crontab -
+            echo "자동 백업이 설정되었습니다."
+            ;;
+        5)
+            echo "종료합니다."
+            exit 0
+            ;;
+        *)
+            echo "잘못된 선택입니다."
+            ;;
+    esac
+    
+    echo ""
+    read -p "계속하려면 Enter를 누르세요..."
+    echo ""
+done
+EOF
+    
+    # 스크립트 실행 권한 부여
+    chmod +x /home/$SUDO_USER/backup-n8n-s3.sh
+    chmod +x /home/$SUDO_USER/restore-n8n-s3.sh
+    chmod +x /home/$SUDO_USER/manage-backup.sh
+    
+    log "백업 스크립트 생성 완료"
+    log "백업 관리: $HOME/manage-backup.sh"
+}
+
 # 서비스 시작 스크립트 생성
 create_start_script() {
     log "서비스 시작 스크립트 생성 중..."
@@ -617,11 +978,18 @@ create_openwebui_compose
 # 설정 변경 스크립트 생성
 create_config_scripts
 
+# AWS 백업 설정
+setup_aws_backup
+
 # 서비스 시작 스크립트 생성
 create_start_script
 
 log "설치가 완료되었습니다."
 log "서비스를 시작하려면 다음 명령어를 실행하세요:"
 log "cd /home/$SUDO_USER/docker && ./start-services.sh"
+log ""
+log "백업 관리를 위해서는 다음 명령어를 사용하세요:"
+log "./manage-backup.sh"
+log ""
 log "Docker 권한 문제가 있다면 다음 명령어를 실행하세요:"
 log "sudo chmod 666 /var/run/docker.sock"
