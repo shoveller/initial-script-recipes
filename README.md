@@ -21,11 +21,16 @@ chmod +x prj.sh
 > n8n 설치 자동화 스크립트(aws lightsail 전용)
 
 ## 다운로드
-`wget https://github.com/shoveller/initial-script-recipes/raw/main/n8n.sh`
+```shell
+wget https://github.com/shoveller/initial-script-recipes/raw/main/n8n.sh`
+```
 
 ## 실행권한 부여
 ```shell
-chmod +x n8n.sh`
+chmod +x n8n.sh
+```
 
 ## n8n 인스톨 개시
-`./n8n.sh`
+```shell
+./n8n.sh
+```
