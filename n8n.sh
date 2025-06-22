@@ -234,11 +234,31 @@ services:
       - N8N_RUNNERS_ENABLED=true
       - GENERIC_TIMEZONE=Asia/Seoul
       - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-      - PPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+      - N8N_BINARY_DATA_MODE=filesystem
+      - N8N_TEMPLATES_ENABLED=true
+      - N8N_PERSONALIZATION_ENABLED=false
     volumes:
       - ./n8n_data:/home/node/.n8n
     depends_on:
       - postgres
+    networks:
+      - n8n-network
+
+  chrome:
+    container_name: browserless_chrome
+    image: browserless/chrome:latest
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - CONNECTION_TIMEOUT=600000
+      - MAX_CONCURRENT_SESSIONS=5
+      - TOKEN=
+      - PREBOOT_CHROME=true
+      - KEEP_ALIVE=true
+      - DEBUG=false
+    shm_size: 1gb
     networks:
       - n8n-network
 
