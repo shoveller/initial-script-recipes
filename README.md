@@ -32,5 +32,5 @@ chmod +x n8n.sh
 
 ## n8n 인스톨 개시
 ```shell
-./n8n.sh
+sudo bash n8n.sh
 ```
