@@ -22,7 +22,7 @@ chmod +x prj.sh
 
 ## 다운로드
 ```shell
-wget https://github.com/shoveller/initial-script-recipes/raw/main/n8n.sh`
+wget https://github.com/shoveller/initial-script-recipes/raw/main/n8n.sh
 ```
 
 ## 실행권한 부여
