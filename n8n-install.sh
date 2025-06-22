@@ -578,7 +578,7 @@ setup_aws_backup() {
         
         # 기본값 설정
         AWS_DEFAULT_OUTPUT="json"
-        
+
         # AWS 자격 증명 파일 생성
         sudo -u $SUDO_USER mkdir -p /home/$SUDO_USER/.aws
         
