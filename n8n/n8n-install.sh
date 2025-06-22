@@ -27,7 +27,7 @@ error() {
 
 # 관리자 권한 확인
 if [ "$EUID" -ne 0 ]; then
-    error "이 스크립트는 관리자 권한으로 실행해야 합니다. 'sudo bash n8n.sh' 명령어를 사용하세요."
+    error "이 스크립트는 관리자 권한으로 실행해야 합니다. 'sudo bash n8n-install.sh' 명령어를 사용하세요."
 fi
 
 # 시스템 업데이트 및 기본 패키지 설치
