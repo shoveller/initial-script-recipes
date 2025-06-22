@@ -572,7 +572,7 @@ setup_aws_backup() {
         echo ""
         
         read -p "AWS Access Key ID: " AWS_ACCESS_KEY_ID
-        read -sp "AWS Secret Access Key: " AWS_SECRET_ACCESS_KEY
+        read -p "AWS Secret Access Key: " AWS_SECRET_ACCESS_KEY
         echo
         read -p "Default region (예: ap-northeast-2): " AWS_DEFAULT_REGION
         
