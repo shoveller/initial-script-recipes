@@ -50,7 +50,7 @@ chmod +x prj.sh
 >
 > ## 실행권한 부여
 > ```shell
-> chmod +x n8n-install
+> chmod +x n8n-install.sh
 > ```
 > 
 > ## 설치
