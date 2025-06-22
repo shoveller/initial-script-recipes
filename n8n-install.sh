@@ -601,7 +601,24 @@ EOF
         
         # S3 버킷 설정
         log "S3 버킷 설정..."
-        read -p "백업용 S3 버킷 이름을 입력하세요 (예: my-n8n-backup): " S3_BUCKET_NAME
+        
+        # 고유한 버킷 이름 생성
+        RANDOM_SUFFIX=$(openssl rand -hex 4)
+        CURRENT_USER=$(whoami)
+        SUGGESTED_BUCKET_NAME="n8n-backup-${CURRENT_USER}-${RANDOM_SUFFIX}"
+        
+        echo "S3 버킷 이름 규칙:"
+        echo "- 3-63자 길이"
+        echo "- 소문자, 숫자, 하이픈(-), 마침표(.)만 사용"
+        echo "- 언더스코어(_) 사용 불가"
+        echo "- 전 세계적으로 고유해야 함"
+        echo ""
+        read -p "백업용 S3 버킷 이름을 입력하세요 (기본값: ${SUGGESTED_BUCKET_NAME}): " S3_BUCKET_NAME
+        
+        # 기본값 설정
+        if [ -z "$S3_BUCKET_NAME" ]; then
+            S3_BUCKET_NAME="$SUGGESTED_BUCKET_NAME"
+        fi
         
         # 버킷 존재 여부 확인 및 생성
         if sudo -u $SUDO_USER aws s3 ls "s3://$S3_BUCKET_NAME" 2>/dev/null; then
