@@ -74,6 +74,9 @@ setup_gitignore() {
 
     # .lh/ 항목 추가
     echo ".lh/" >> .gitignore
+    
+    # .turbo/ 항목 추가
+    echo ".turbo/" >> .gitignore
 
     # 백업 파일 삭제
     rm -f .gitignore.bak
@@ -239,6 +242,54 @@ jobs:
           git push
 
 EOF
+
+    echo -e "${GREEN}AWS Lambda 배포 GitHub Actions workflow를 생성합니다...${NC}"
+    cat > .github/workflows/deploy-aws-lambda.yml << EOF
+name: Deploy to aws lambda
+
+on:
+   workflow_dispatch:
+   workflow_run:
+      workflows: ['semantic-release']
+      types:
+         - completed
+      branches:
+         - main
+   push:
+      branches:
+         - develop
+         - alpha
+         - beta
+
+jobs:
+   deploy:
+      runs-on: ubuntu-latest
+      steps:
+         - name: Checkout repository
+           uses: actions/checkout@v4
+
+         - name: Install pnpm
+           uses: pnpm/action-setup@v4
+           with:
+              version: '$pnpm_version'
+              run_install: false
+
+         - name: Setup Node.js
+           uses: actions/setup-node@v4
+           with:
+              node-version: '20'
+              cache: 'pnpm'
+
+         - name: Install dependencies
+           run: pnpm i --frozen-lockfile
+
+         - name: Deploy to AWS Lambda
+           env:
+              AWS_ACCOUNT_ID: \${{ secrets.AWS_ACCOUNT_ID }}
+              AWS_DEFAULT_REGION: \${{ secrets.AWS_DEFAULT_REGION }}
+           run: pnpm deploy
+
+EOF
 }
 
 # Pure function to setup package.json private field and scripts
@@ -249,7 +300,7 @@ setup_package_json_private() {
 
     # Use jq if available, otherwise use sed
     if command -v jq &> /dev/null; then
-        jq --arg version "$pnpm_version" '. + {"private": true, "packageManager": ("pnpm@" + $version), "scripts": {"format": "turbo format", "dev": "turbo dev", "sync-catalog": "sync-catalog"}}' package.json > package.json.tmp && mv package.json.tmp package.json
+        jq --arg version "$pnpm_version" '. + {"private": true, "packageManager": ("pnpm@" + $version), "scripts": {"format": "turbo format", "dev": "turbo dev", "sync-catalog": "sync-catalog", "prepare": "husky", "bootstrap": "turbo bootstrap", "build": "turbo build", "deploy": "turbo deploy", "destroy": "turbo destroy"}}' package.json > package.json.tmp && mv package.json.tmp package.json
     else
         # Fallback: Create a proper package.json using Node.js
         node -e "
@@ -260,7 +311,12 @@ setup_package_json_private() {
         pkg.scripts = {
             'format': 'turbo format',
             'dev': 'turbo dev',
-            'sync-catalog': 'sync-catalog'
+            'sync-catalog': 'sync-catalog',
+            'prepare': 'husky',
+            'bootstrap': 'turbo bootstrap',
+            'build': 'turbo build',
+            'deploy': 'turbo deploy',
+            'destroy': 'turbo destroy'
         };
         fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
         "
@@ -283,8 +339,11 @@ setup_husky() {
     echo "pnpm format" > .husky/pre-commit
 }
 
-# Pure function to create workspace structure
+# Pure function to create workspace structure with complete turbo config
 create_workspace_structure() {
+    local package_scope=$1
+    local project_name=$2
+
     echo -e "${GREEN}워크스페이스 구조를 생성합니다...${NC}"
     mkdir -p apps packages
 
@@ -296,9 +355,9 @@ packages:
 EOF
 
     echo -e "${GREEN}turbo.json을 생성합니다...${NC}"
-    cat > turbo.json << 'EOF'
+    cat > turbo.json << EOF
 {
-  "$schema": "https://turbo.build/schema.json",
+  "\$schema": "https://turbo.build/schema.json",
   "remoteCache": {
     "enabled": false
   },
@@ -310,6 +369,16 @@ EOF
     },
      "version": {
        "dependsOn": ["^version"]
+     },
+     "build": {},
+     "deploy": {},
+     "destroy": {},
+     "bootstrap": {},
+     "${package_scope}/infra#deploy": {
+       "dependsOn": [
+         "${package_scope}/web#build"
+       ],
+       "cache": false
      }
    }
 }
@@ -988,6 +1057,288 @@ create_root_config_files() {
     echo "export { default } from '$package_scope/prettier'" > prettier.config.mjs
 }
 
+# Pure function to setup infrastructure package
+setup_infra_package() {
+    local package_scope=$1
+    local project_name=$2
+
+    echo -e "${GREEN}Infrastructure 패키지를 설정합니다...${NC}"
+    mkdir -p packages/infra
+    cd packages/infra
+
+    pnpm init
+
+    # Update package.json for infra package
+    if command -v jq &> /dev/null; then
+        jq --arg scope "$package_scope" '. + {"name": ($scope + "/infra"), "private": true, "scripts": {"bootstrap": "cdk bootstrap && cdk deploy --timeout 20 --require-approval never --concurrency 10", "deploy": "cdk deploy --hotswap --require-approval never --concurrency 10 --quiet", "destroy": "cdk destroy"}}' package.json > package.json.tmp && mv package.json.tmp package.json
+    else
+        # Fallback: Use Node.js for safe JSON manipulation
+        node -e "
+        const fs = require('fs');
+        const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+        pkg.name = '$package_scope/infra';
+        pkg.private = true;
+        pkg.scripts = {
+            'bootstrap': 'cdk bootstrap && cdk deploy --timeout 20 --require-approval never --concurrency 10',
+            'deploy': 'cdk deploy --hotswap --require-approval never --concurrency 10 --quiet',
+            'destroy': 'cdk destroy'
+        };
+        fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+        "
+    fi
+
+    echo -e "${GREEN}Infrastructure 의존성을 설치합니다...${NC}"
+    pnpm i esbuild tsx @react-router/architect aws-cdk aws-cdk-lib constructs
+
+    echo -e "${GREEN}CDK Stack 파일을 생성합니다...${NC}"
+    cat > cdk-stack.ts << 'EOF'
+import * as cdk from 'aws-cdk-lib'
+import { Construct } from 'constructs'
+import * as lambda from 'aws-cdk-lib/aws-lambda'
+import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs'
+import * as s3 from 'aws-cdk-lib/aws-s3'
+import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment'
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront'
+import * as origins from 'aws-cdk-lib/aws-cloudfront-origins'
+
+type CdkStackProps = cdk.StackProps & {
+    // 람다 어댑터의 위치
+    lambdaEntry: string
+    // 빌드된 static asset 의 위치
+    staticAssetPath: string
+    // 환경 정보
+    environment: string
+}
+
+export class CdkStack extends cdk.Stack {
+    constructor(scope: Construct, id: string, props?: CdkStackProps) {
+        super(scope, id, props)
+
+        // 엔트리포인트에서 람다함수를 참조해서 빌드
+        const lambdaFunction = new nodejs.NodejsFunction(this, `${id}-handler`, {
+            runtime: lambda.Runtime.NODEJS_22_X,
+            handler: 'handler',
+            entry: props?.lambdaEntry,
+            bundling: {
+                externalModules: [
+                    '@aws-sdk/*',
+                    'aws-sdk' // Not actually needed (or provided): https://github.com/remix-run/react-router/issues/13341
+                ],
+                minify: true,
+                sourceMap: true,
+                target: 'es2022'
+            },
+            environment: {
+                NODE_ENV: props?.environment || ''
+            }
+        })
+
+        // Create Function URL for the Lambda
+        const functionUrl = lambdaFunction.addFunctionUrl({
+            authType: lambda.FunctionUrlAuthType.NONE
+        })
+
+        // Create S3 bucket for static assets
+        const staticBucket = new s3.Bucket(this, `${id}-s3`, {
+            enforceSSL: true,
+            publicReadAccess: false,
+            blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+            removalPolicy: cdk.RemovalPolicy.DESTROY,
+            autoDeleteObjects: true
+        })
+
+        // Create CloudFront distribution
+        const distribution = new cloudfront.Distribution(
+            this,
+            `${id}-Distribution`,
+            {
+                defaultBehavior: {
+                    origin: new origins.FunctionUrlOrigin(functionUrl),
+                    viewerProtocolPolicy:
+                    cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                    allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+                    cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
+                    originRequestPolicy:
+                    cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+                    cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED
+                },
+                additionalBehaviors: {
+                    '/assets/*': {
+                        origin: origins.S3BucketOrigin.withOriginAccessControl(
+                            staticBucket,
+                            {
+                                originAccessLevels: [
+                                    cloudfront.AccessLevel.READ,
+                                    cloudfront.AccessLevel.LIST
+                                ]
+                            }
+                        ),
+                        viewerProtocolPolicy:
+                        cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+                        cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
+                        cachePolicy: new cloudfront.CachePolicy(
+                            this,
+                            `${id}-StaticCachePolicy`,
+                            {
+                                headerBehavior: cloudfront.CacheHeaderBehavior.allowList(
+                                    'CloudFront-Viewer-Country'
+                                ),
+                                queryStringBehavior: cloudfront.CacheQueryStringBehavior.none(),
+                                cookieBehavior: cloudfront.CacheCookieBehavior.none(),
+                                defaultTtl: cdk.Duration.days(365),
+                                maxTtl: cdk.Duration.days(365),
+                                minTtl: cdk.Duration.days(365)
+                            }
+                        )
+                    }
+                }
+            }
+        )
+
+        // Deploy static assets to S3
+        new s3deploy.BucketDeployment(this, `${id}-StaticAssets`, {
+            sources: [s3deploy.Source.asset(props?.staticAssetPath || '')],
+            destinationBucket: staticBucket,
+            destinationKeyPrefix: 'assets',
+            distribution,
+            distributionPaths: ['/assets/*']
+        })
+
+        new cdk.CfnOutput(this, `${id}-DomainName`, {
+            value: `https://${distribution.domainName}`,
+            description: 'CloudFront Distribution URL'
+        })
+    }
+}
+EOF
+
+    echo -e "${GREEN}CDK 애플리케이션 파일을 생성합니다...${NC}"
+    cat > cdk.ts << EOF
+#!/usr/bin/env node
+import * as cdk from 'aws-cdk-lib';
+import { CdkStack } from './cdk-stack';
+import * as path from 'path';
+import { execSync } from 'child_process';
+
+const projectName = '$project_name'
+// Get current git branch name
+const branchName = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf-8' }).trim();
+const environment = process.env.NODE_ENV || 'development';
+const lambdaEntry = path.join(__dirname, '../../apps/web/entry/lambda.ts');
+const staticAssetPath = path.join(__dirname, '../../apps/web/build/client/assets')
+
+const app = new cdk.App();
+new CdkStack(app, \`\${projectName}-\${branchName}\`, {
+  env: { 
+    account: process.env.CDK_DEFAULT_ACCOUNT || process.env.AWS_ACCOUNT_ID,
+    region: process.env.CDK_DEFAULT_REGION || process.env.AWS_DEFAULT_REGION || 'ap-northeast-2'
+  },
+  lambdaEntry,
+  staticAssetPath,
+  environment,
+  tags: {
+    Environment: environment,
+    Project: projectName
+  }
+});
+EOF
+
+    echo -e "${GREEN}CDK 설정 파일을 생성합니다...${NC}"
+    cat > cdk.json << 'EOF'
+{
+  "app": "pnpm tsx cdk.ts",
+  "watch": {
+    "include": [
+      "**"
+    ],
+    "exclude": [
+      "README.md",
+      "cdk*.json",
+      "**/*.d.ts",
+      "**/*.js",
+      "tsconfig.json",
+      "package*.json",
+      "yarn.lock",
+      "node_modules",
+      "test"
+    ]
+  },
+  "context": {
+    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+    "@aws-cdk/core:checkSecretUsage": true,
+    "@aws-cdk/core:target-partitions": [
+      "aws",
+      "aws-cn"
+    ],
+    "@aws-cdk-containers/ecs-service-extensions:enableDefaultLogDriver": true,
+    "@aws-cdk/aws-ec2:uniqueImdsv2TemplateName": true,
+    "@aws-cdk/aws-ecs:arnFormatIncludesClusterName": true,
+    "@aws-cdk/aws-iam:minimizePolicies": true,
+    "@aws-cdk/core:validateSnapshotRemovalPolicy": true,
+    "@aws-cdk/aws-codepipeline:crossAccountKeyAliasStackSafeResourceName": true,
+    "@aws-cdk/aws-s3:createDefaultLoggingPolicy": true,
+    "@aws-cdk/aws-sns-subscriptions:restrictSqsDescryption": true,
+    "@aws-cdk/aws-apigateway:disableCloudWatchRole": true,
+    "@aws-cdk/core:enablePartitionLiterals": true,
+    "@aws-cdk/aws-events:eventsTargetQueueSameAccount": true,
+    "@aws-cdk/aws-ecs:disableExplicitDeploymentControllerForCircuitBreaker": true,
+    "@aws-cdk/aws-iam:importedRoleStackSafeDefaultPolicyName": true,
+    "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": true,
+    "@aws-cdk/aws-route53-patters:useCertificate": true,
+    "@aws-cdk/customresources:installLatestAwsSdkDefault": false,
+    "@aws-cdk/aws-rds:databaseProxyUniqueResourceName": true,
+    "@aws-cdk/aws-codedeploy:removeAlarmsFromDeploymentGroup": true,
+    "@aws-cdk/aws-apigateway:authorizerChangeDeploymentLogicalId": true,
+    "@aws-cdk/aws-ec2:launchTemplateDefaultUserData": true,
+    "@aws-cdk/aws-secretsmanager:useAttachedSecretResourcePolicyForSecretTargetAttachments": true,
+    "@aws-cdk/aws-redshift:columnId": true,
+    "@aws-cdk/aws-stepfunctions-tasks:enableEmrServicePolicyV2": true,
+    "@aws-cdk/aws-ec2:restrictDefaultSecurityGroup": true,
+    "@aws-cdk/aws-apigateway:requestValidatorUniqueId": true,
+    "@aws-cdk/aws-kms:aliasNameRef": true,
+    "@aws-cdk/aws-autoscaling:generateLaunchTemplateInsteadOfLaunchConfig": true,
+    "@aws-cdk/core:includePrefixInUniqueNameGeneration": true,
+    "@aws-cdk/aws-efs:denyAnonymousAccess": true,
+    "@aws-cdk/aws-opensearchservice:enableOpensearchMultiAzWithStandby": true,
+    "@aws-cdk/aws-lambda-nodejs:useLatestRuntimeVersion": true,
+    "@aws-cdk/aws-efs:mountTargetOrderInsensitiveLogicalId": true,
+    "@aws-cdk/aws-rds:auroraClusterChangeScopeOfInstanceParameterGroupWithEachParameters": true,
+    "@aws-cdk/aws-appsync:useArnForSourceApiAssociationIdentifier": true,
+    "@aws-cdk/aws-rds:preventRenderingDeprecatedCredentials": true,
+    "@aws-cdk/aws-codepipeline-actions:useNewDefaultBranchForCodeCommitSource": true,
+    "@aws-cdk/aws-cloudwatch-actions:changeLambdaPermissionLogicalIdForLambdaAction": true,
+    "@aws-cdk/aws-codepipeline:crossAccountKeysDefaultValueToFalse": true,
+    "@aws-cdk/aws-codepipeline:defaultPipelineTypeToV2": true,
+    "@aws-cdk/aws-kms:reduceCrossAccountRegionPolicyScope": true,
+    "@aws-cdk/aws-eks:nodegroupNameAttribute": true,
+    "@aws-cdk/aws-ec2:ebsDefaultGp3Volume": true,
+    "@aws-cdk/aws-ecs:removeDefaultDeploymentAlarm": true,
+    "@aws-cdk/custom-resources:logApiResponseDataPropertyTrueDefault": false,
+    "@aws-cdk/aws-s3:keepNotificationInImportedBucket": false,
+    "@aws-cdk/aws-ecs:enableImdsBlockingDeprecatedFeature": false,
+    "@aws-cdk/aws-ecs:disableEcsImdsBlocking": true,
+    "@aws-cdk/aws-ecs:reduceEc2FargateCloudWatchPermissions": true,
+    "@aws-cdk/aws-dynamodb:resourcePolicyPerReplica": true,
+    "@aws-cdk/aws-ec2:ec2SumTImeoutEnabled": true,
+    "@aws-cdk/aws-appsync:appSyncGraphQLAPIScopeLambdaPermission": true,
+    "@aws-cdk/aws-rds:setCorrectValueForDatabaseInstanceReadReplicaInstanceResourceId": true,
+    "@aws-cdk/core:cfnIncludeRejectComplexResourceUpdateCreatePolicyIntrinsics": true,
+    "@aws-cdk/aws-lambda-nodejs:sdkV3ExcludeSmithyPackages": true,
+    "@aws-cdk/aws-stepfunctions-tasks:fixRunEcsTaskPolicy": true,
+    "@aws-cdk/aws-ec2:bastionHostUseAmazonLinux2023ByDefault": true,
+    "@aws-cdk/aws-route53-targets:userPoolDomainNameMethodWithoutCustomResource": true,
+    "@aws-cdk/aws-elasticloadbalancingV2:albDualstackWithoutPublicIpv4SecurityGroupRulesDefault": true,
+    "@aws-cdk/aws-iam:oidcRejectUnauthorizedConnections": true,
+    "@aws-cdk/core:enableAdditionalMetadataCollection": true
+  }
+}
+EOF
+
+    cd ../..
+}
+
+
 # Pure function to setup React Router web app
 setup_react_router_web() {
     local package_scope=$1
@@ -1078,6 +1429,23 @@ EOF
     pnpm i
     pnpm typecheck
 
+    # React Router 추가 설정
+    echo -e "${GREEN}React Router Architect 의존성을 추가합니다...${NC}"
+    pnpm i @react-router/architect -D
+
+    echo -e "${GREEN}Lambda 엔트리 포인트를 생성합니다...${NC}"
+    mkdir -p entry
+    cat > entry/lambda.ts << 'EOF'
+import { createRequestHandler } from "@react-router/architect";
+// @ts-expect-error (no types declared for build)
+import * as build from "../build/server";
+
+export const handler = createRequestHandler({
+    build,
+    mode: process.env.NODE_ENV,
+});
+EOF
+
     cd ../..
 }
 
@@ -1121,6 +1489,45 @@ EOF
 EOF
 }
 
+# Pure function to create project README
+create_project_readme() {
+    echo -e "${GREEN}프로젝트 README.md 파일을 생성합니다...${NC}"
+    
+    cat > README.md << 'EOF'
+# 주요 명령어
+
+## 개발서버 시작
+```shell
+pnpm dev
+```
+
+## prettier + eslint 실행
+```shell
+pnpm format
+```
+
+## pnpm 카탈로그 업데이트
+```shell
+pnpm sync-catalog
+```
+
+## aws 인프라 업데이트
+```shell
+pnpm bootstrap
+```
+
+## aws 인프라 배포
+```shell
+pnpm deploy
+```
+
+## aws 인프라 파괴
+```shell
+pnpm destroy
+```
+EOF
+}
+
 # Main execution function
 main() {
     echo -e "${BLUE}=== 프로젝트 스캐폴딩을 시작합니다 ===${NC}"
@@ -1146,7 +1553,7 @@ main() {
     setup_package_json_private "$pnpm_version"
     setup_turborepo
     setup_husky
-    create_workspace_structure
+    create_workspace_structure "$package_scope" "$project_name"
     setup_scripts_package "$package_scope"
     setup_scripts_readme
     add_scripts_to_root_dependencies "$package_scope"
@@ -1154,6 +1561,8 @@ main() {
     setup_prettier_package "$package_scope"
     create_root_config_files "$package_scope"
     setup_react_router_web "$package_scope"
+    setup_infra_package "$package_scope" "$project_name"
+    create_project_readme
     setup_vscode_workspace
 
     echo -e "${GREEN}=== 프로젝트 스캐폴딩이 완료되었습니다! ===${NC}"
