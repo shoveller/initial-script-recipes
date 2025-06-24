@@ -78,6 +78,9 @@ setup_gitignore() {
     # .turbo/ 항목 추가
     echo ".turbo/" >> .gitignore
 
+    # cdk.out/ 항목 추가
+    echo "cdk.out/" >> .gitignore
+
     # 백업 파일 삭제
     rm -f .gitignore.bak
 }
