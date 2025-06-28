@@ -245,54 +245,6 @@ jobs:
           git push
 
 EOF
-
-    echo -e "${GREEN}AWS Lambda 배포 GitHub Actions workflow를 생성합니다...${NC}"
-    cat > .github/workflows/deploy-aws-lambda.yml << EOF
-name: Deploy to aws lambda
-
-on:
-   workflow_dispatch:
-   workflow_run:
-      workflows: ['semantic-release']
-      types:
-         - completed
-      branches:
-         - main
-   push:
-      branches:
-         - develop
-         - alpha
-         - beta
-
-jobs:
-   deploy:
-      runs-on: ubuntu-latest
-      steps:
-         - name: Checkout repository
-           uses: actions/checkout@v4
-
-         - name: Install pnpm
-           uses: pnpm/action-setup@v4
-           with:
-              version: '$pnpm_version'
-              run_install: false
-
-         - name: Setup Node.js
-           uses: actions/setup-node@v4
-           with:
-              node-version: '20'
-              cache: 'pnpm'
-
-         - name: Install dependencies
-           run: pnpm i --frozen-lockfile
-
-         - name: Deploy to AWS Lambda
-           env:
-              AWS_ACCOUNT_ID: \${{ secrets.AWS_ACCOUNT_ID }}
-              AWS_DEFAULT_REGION: \${{ secrets.AWS_DEFAULT_REGION }}
-           run: pnpm deploy
-
-EOF
 }
 
 # Pure function to setup package.json private field and scripts
@@ -1431,23 +1383,6 @@ EOF
     echo -e "${GREEN}의존성을 설치하고 타입 체크를 실행합니다...${NC}"
     pnpm i
     pnpm typecheck
-
-    # React Router 추가 설정
-    echo -e "${GREEN}React Router Architect 의존성을 추가합니다...${NC}"
-    pnpm i @react-router/architect -D
-
-    echo -e "${GREEN}Lambda 엔트리 포인트를 생성합니다...${NC}"
-    mkdir -p entry
-    cat > entry/lambda.ts << 'EOF'
-import { createRequestHandler } from "@react-router/architect";
-// @ts-expect-error (no types declared for build)
-import * as build from "../build/server";
-
-export const handler = createRequestHandler({
-    build,
-    mode: process.env.NODE_ENV,
-});
-EOF
 
     cd ../..
 }
