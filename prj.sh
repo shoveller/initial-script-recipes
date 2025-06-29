@@ -390,7 +390,7 @@ EOF
   },
   "tasks": {
      "format": {
-      "cache": false,
+      "cache": false
      },
      "dev": {
       "cache": false,
