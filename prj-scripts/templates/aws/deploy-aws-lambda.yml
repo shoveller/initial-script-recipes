@@ -1,0 +1,63 @@
+name: Deploy to aws lambda
+
+on:
+   workflow_dispatch:
+   workflow_run:
+      workflows: ['semantic-release']
+      types:
+         - completed
+      branches:
+         - main
+   push:
+      branches:
+         - develop
+
+jobs:
+   deploy:
+      runs-on: ubuntu-latest
+      steps:
+         - name: Checkout repository
+           uses: actions/checkout@v4
+
+         - name: Install pnpm
+           uses: pnpm/action-setup@v4
+           with:
+              version: '$pnpm_version'
+              run_install: false
+
+         - name: Setup Node.js
+           uses: actions/setup-node@v4
+           with:
+              node-version: '20'
+              cache: 'pnpm'
+
+         - name: Install dependencies
+           run: pnpm i --frozen-lockfile
+
+         - name: Deploy to AWS Lambda
+           env:
+              AWS_ACCOUNT_ID: \${{ secrets.AWS_ACCOUNT_ID }}
+              AWS_DEFAULT_REGION: \${{ secrets.AWS_DEFAULT_REGION }}
+           run: pnpm deploy
+
+         - name: 배포 성공 알림
+           if: success()
+           uses: cbrgm/telegram-github-action@v1
+           with:
+             token: \${{ secrets.TELEGRAM_TOKEN }}
+             to: \${{ secrets.TELEGRAM_CHAT_ID }}
+             message: |
+               ✅ 배포 성공
+               브랜치: \${{ github.ref_name }}
+               배포 URL: https://\${{ secrets.SUBDOMAIN && format('{0}.{1}', secrets.SUBDOMAIN, secrets.DOMAIN) || secrets.DOMAIN }}
+
+         - name: 배포 실패 알림
+           if: failure()
+           uses: cbrgm/telegram-github-action@v1
+           with:
+             token: \${{ secrets.TELEGRAM_TOKEN }}
+             to: \${{ secrets.TELEGRAM_CHAT_ID }}
+             message: |
+               ❌ 배포 실패
+               브랜치: \${{ github.ref_name }}
+               작업 링크: https://github.com/\${{ github.repository }}/actions/runs/\${{ github.run_id }}
