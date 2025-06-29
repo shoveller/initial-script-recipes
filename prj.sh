@@ -317,7 +317,9 @@ EOF
     "enabled": false
   },
   "tasks": {
-     "format": {},
+     "format": {
+      "cache": false,
+     },
      "dev": {
       "cache": false,
       "persistent": true
