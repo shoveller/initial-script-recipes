@@ -1054,7 +1054,7 @@ export default {
     'prettier-plugin-css-order',
     'prettier-plugin-classnames'
   ],
-  endingPosition: 'absolute-with-indent',
+  endingPosition: 'absolute',
   importOrder: [
     '^react',
     '',
