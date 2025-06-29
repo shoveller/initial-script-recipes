@@ -1,4 +1,4 @@
-# prj.sh
+# prj-scripts/start.sh
 > 웹 프론트엔드 프로젝트 스케폴드 자동화 스크립트(osx 전용)
 
 ## 실행 흐름
@@ -48,15 +48,16 @@ graph TD
     end
 
     subgraph "웹 애플리케이션 설정"
-        V --> W[웹 앱 패키지 생성<br>(apps/web)];
-        W --> X[Vite, React, Tailwind CSS 등<br>필요한 의존성 설치];
-        X --> Y[설정 파일 생성<br>(vite.config.ts, tailwind.config.ts, postcss.config.mjs)];
-        Y --> Z[기본 소스 코드 생성<br>(main.tsx, App.tsx, index.css)];
+        V --> W[React Router 웹 앱 생성<br>(apps/web)];
+        W --> X[패키지 설정 및 의존성 추가<br>(scripts, eslint, prettier)];
+        X --> Y[TypeScript 설정 및 타입 체크];
+        Y --> Z[React Router 앱 구조 최적화<br>(ErrorBoundary, home.tsx 수정)];
     end
 
     subgraph "최종 단계"
-        Z --> AA[의존성 최종 설치<br>(pnpm install)];
-        AA --> BB[Git 커밋];
+        Z --> AA[VS Code 워크스페이스 설정];
+        AA --> BB[프로젝트 README 및 .env 템플릿 생성];
+        BB --> CC[스캐폴딩 완료];
     end
 
     style A fill:#f9f,stroke:#333,stroke-width:2px
@@ -67,15 +68,39 @@ graph TD
 
 ## 다운로드
 ```shell
-curl -L -o prj.sh https://github.com/shoveller/initial-script-recipes/raw/main/prj.sh
+# 전체 저장소 클론
+git clone https://github.com/shoveller/initial-script-recipes.git
+cd initial-script-recipes
+```
+
+또는 특정 파일들만 다운로드:
+```shell
+# 스크립트 디렉토리 생성
+mkdir -p prj-scripts
+
+# 메인 스크립트 다운로드
+curl -L -o prj-scripts/start.sh https://github.com/shoveller/initial-script-recipes/raw/main/prj-scripts/start.sh
+
+# 템플릿 복사 헬퍼 스크립트 다운로드
+curl -L -o prj-scripts/copy-template.sh https://github.com/shoveller/initial-script-recipes/raw/main/prj-scripts/copy-template.sh
+
+# 템플릿 디렉토리 다운로드 (필요한 모든 템플릿 파일들)
+mkdir -p prj-scripts/templates
+# 각 템플릿 파일들을 개별적으로 다운로드하거나 저장소를 클론하는 것을 권장
 ```
 
 ## 실행권한 부여
 ```shell
-chmod +x prj.sh
+chmod +x prj-scripts/start.sh
 ```
 
 ## 웹 프론트엔드 프로젝트 스케폴드 개시
 ```shell
-./prj.sh
+./prj-scripts/start.sh
 ```
+
+## 주요 변경사항
+- **단일 스크립트**: 이제 `prj-scripts/start.sh` 하나만 실행하면 전체 스캐폴딩이 완료됩니다
+- **템플릿 기반**: 하드코딩된 내용들이 `prj-scripts/templates/` 디렉토리의 템플릿 파일들로 분리되었습니다
+- **React Router**: Vite + React 대신 React Router를 사용하여 웹 애플리케이션을 생성합니다
+- **통합된 워크플로우**: 기존 `prj.sh`와 `prj-scripts/prj.sh`의 기능이 하나로 통합되었습니다
