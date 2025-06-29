@@ -2439,6 +2439,107 @@ EOF
     pnpm i
     pnpm typecheck
 
+    echo -e "${GREEN}root.tsx 파일에 FC import를 추가합니다...${NC}"
+    # Add FC import to the top of root.tsx
+    sed -i.bak '1i\
+import type { FC } from '\''react'\''
+' app/root.tsx
+    rm -f app/root.tsx.bak
+
+    echo -e "${GREEN}root.tsx 파일의 ErrorBoundary 함수를 수정합니다...${NC}"
+    # Create temporary file with new ErrorBoundary code
+    cat > /tmp/new_error_boundary.tsx << 'EOF'
+// 오류 UI 렌더링을 위한 함수
+const ErrorBoundaryUI: FC<{
+  message: string
+  details: string
+  stack?: string
+}> = ({ message, stack, details }) => {
+  return (
+    <main className="pt-16 p-4 container mx-auto">
+      <h1>{message}</h1>
+      <p>{details}</p>
+      {stack && (
+        <pre className="w-full p-4 overflow-x-auto">
+          <code>{stack}</code>
+        </pre>
+      )}
+    </main>
+  )
+}
+
+export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+  // 기본 오류 메시지 설정
+  const defaultMessage = 'Oops!'
+  const defaultDetails = 'An unexpected error occurred.'
+
+  // 404 오류 처리
+  if (isRouteErrorResponse(error) && error.status === 404) {
+    return (
+      <ErrorBoundaryUI
+        message="404"
+        details="The requested page could not be found."
+      />
+    )
+  }
+
+  // 기타 라우트 오류 처리
+  if (isRouteErrorResponse(error)) {
+    return (
+      <ErrorBoundaryUI
+        message="Error"
+        details={error.statusText || defaultDetails}
+      />
+    )
+  }
+
+  // 개발 환경에서의 일반 오류 처리
+  if (import.meta.env.DEV && error && error instanceof Error) {
+    return (
+      <ErrorBoundaryUI
+        message={defaultMessage}
+        details={error.message}
+        stack={error.stack}
+      />
+    )
+  }
+
+  // 기본 오류 UI 반환
+  return <ErrorBoundaryUI message={defaultMessage} details={defaultDetails} />
+}
+EOF
+
+    # Replace ErrorBoundary function in root.tsx
+    node -e "
+    const fs = require('fs');
+    const content = fs.readFileSync('app/root.tsx', 'utf8');
+    const newErrorBoundary = fs.readFileSync('/tmp/new_error_boundary.tsx', 'utf8');
+    
+    // Remove existing ErrorBoundary function
+    const result = content.replace(/export function ErrorBoundary[^}]*}(?:\s*})*/, newErrorBoundary);
+    
+    fs.writeFileSync('app/root.tsx', result);
+    "
+    
+    # Clean up temporary file
+    rm -f /tmp/new_error_boundary.tsx
+
+    echo -e "${GREEN}home.tsx 파일을 수정합니다...${NC}"
+    cat > app/routes/home.tsx << 'EOF'
+import { Welcome } from '~/welcome/welcome'
+
+export function meta() {
+  return [
+    { title: 'New React Router App' },
+    { name: 'description', content: 'Welcome to React Router!' }
+  ]
+}
+
+export default function Home() {
+  return <Welcome />
+}
+EOF
+
     cd ../..
 }
 
