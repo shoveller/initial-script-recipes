@@ -1,0 +1,28 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "remoteCache": {
+    "enabled": false
+  },
+  "tasks": {
+     "format": {
+      "cache": false
+     },
+     "dev": {
+      "cache": false,
+      "persistent": true
+    },
+     "version": {
+       "dependsOn": ["^version"]
+     },
+     "build": {},
+     "deploy": {},
+     "destroy": {},
+     "bootstrap": {},
+     "{{PACKAGE_SCOPE}}/infra#deploy": {
+       "dependsOn": [
+         "{{PACKAGE_SCOPE}}/web#build"
+       ],
+       "cache": false
+     }
+   }
+}
