@@ -70,7 +70,6 @@ graph TD
 ```shell
 # 전체 저장소 클론
 git clone https://github.com/shoveller/initial-script-recipes.git
-cd initial-script-recipes
 ```
 
 또는 특정 파일들만 다운로드:
@@ -91,12 +90,12 @@ mkdir -p prj-scripts/templates
 
 ## 실행권한 부여
 ```shell
-chmod +x prj-scripts/start.sh
+chmod +x initial-script-recipes/prj-scripts/start.sh
 ```
 
 ## 웹 프론트엔드 프로젝트 스케폴드 개시
 ```shell
-./prj-scripts/start.sh
+./initial-script-recipes/prj-scripts/start.sh
 ```
 
 ## 주요 변경사항
