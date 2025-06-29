@@ -59,6 +59,24 @@ edit_infra_package_json() {
     fi
 }
 
+# Copy AWS infrastructure template files
+copy_infra_templates() {
+    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local templates_dir="$script_dir/../infra"
+    
+    echo -e "${GREEN}AWS 인프라 템플릿 파일들을 복사합니다...${NC}"
+    
+    if [[ ! -d "$templates_dir" ]]; then
+        echo -e "${RED}템플릿 디렉토리를 찾을 수 없습니다: $templates_dir${NC}"
+        exit 1
+    fi
+    
+    # Copy all template files to packages/infra
+    cp -r "$templates_dir"/* packages/infra/
+    
+    echo -e "${GREEN}템플릿 파일들이 복사되었습니다.${NC}"
+}
+
 # Install dependencies
 install_dependencies() {
     echo -e "${GREEN}디펜던시를 설치합니다...${NC}"
@@ -115,10 +133,14 @@ main() {
     check_and_remove_infra_dir
     init_infra_dir
     edit_infra_package_json "$scope_name"
+    copy_infra_templates
     install_dependencies
     
     echo -e "${GREEN}=== AWS 인프라 설정이 완료되었습니다! ===${NC}"
-    echo -e "${BLUE}다음 단계: CDK 파일들을 생성하고 배포를 진행하세요.${NC}"
+    echo -e "${BLUE}다음 단계:${NC}"
+    echo -e "${BLUE}1. .env 파일을 수정하여 AWS 계정 정보를 입력하세요${NC}"
+    echo -e "${BLUE}2. pnpm bootstrap 명령으로 CDK를 배포하세요${NC}"
+    echo -e "${BLUE}3. GitHub Actions 워크플로우를 사용하려면 deploy-aws-lambda.yml 파일을 복사하세요${NC}"
 }
 
 # Run main function

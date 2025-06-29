@@ -132,13 +132,6 @@ setup_semantic_release() {
     copy_template "semantic-release/semantic-release.yml" ".github/workflows/semantic-release.yml" "$pnpm_version"
 }
 
-# Pure function to create AWS Lambda deployment workflow
-create_aws_deployment_workflow() {
-    local pnpm_version=$1
-
-    echo -e "${GREEN}AWS Lambda 배포 GitHub Actions workflow를 생성합니다...${NC}"
-    copy_template "aws/deploy-aws-lambda.yml" ".github/workflows/deploy-aws-lambda.yml" "$pnpm_version"
-}
 
 # Pure function to setup package.json private field and scripts
 setup_package_json_private() {
@@ -184,7 +177,16 @@ setup_husky() {
     pnpm husky init
 
     echo -e "${GREEN}pre-commit 훅을 설정합니다...${NC}"
-    echo "pnpm format" > .husky/pre-commit
+    cat > .husky/pre-commit << 'EOF'
+pnpm format
+
+# GitHub 시크릿 업로드 (선택사항)
+# 다음 라인의 주석을 해제하여 커밋 전 자동 시크릿 업로드를 활성화할 수 있습니다
+# if [[ -f "packages/scripts/upload-secrets.sh" && -f ".env" ]]; then
+#     echo "Uploading secrets to GitHub..."
+#     packages/scripts/upload-secrets.sh --force
+# fi
+EOF
 }
 
 # Pure function to create workspace structure with complete turbo config
@@ -375,79 +377,30 @@ create_root_config_files() {
     echo "export { default } from '$package_scope/prettier'" > prettier.config.mjs
 }
 
-# Pure function to create AWS infrastructure setup script
-create_aws_infra_script() {
+# Pure function to create scripts and documentation
+create_scripts_and_docs() {
     local package_scope=$1
 
-    echo -e "${GREEN}AWS 인프라 설정 스크립트를 생성합니다...${NC}"
-    mkdir -p packages/scripts
+    echo -e "${GREEN}스크립트와 문서 파일들을 생성합니다...${NC}"
     
     echo -e "${GREEN}set-aws-infra.sh 파일을 생성합니다...${NC}"
     copy_template "scripts/set-aws-infra.sh" "packages/scripts/set-aws-infra.sh"
 
+    echo -e "${GREEN}upload-secrets.sh 파일을 생성합니다...${NC}"
+    copy_template "scripts/upload-secrets.sh" "packages/scripts/upload-secrets.sh"
+
+    echo -e "${GREEN}SECRETS_UPLOAD.md 문서를 생성합니다...${NC}"
+    copy_template "scripts/SECRETS_UPLOAD.md" "packages/scripts/SECRETS_UPLOAD.md"
+
+    echo -e "${GREEN}HOW_TO_GET_TOKENS.md 문서를 생성합니다...${NC}"
+    copy_template "scripts/HOW_TO_GET_TOKENS.md" "packages/scripts/HOW_TO_GET_TOKENS.md"
+
     # Grant execution permissions
     chmod +x packages/scripts/set-aws-infra.sh
-    echo -e "${GREEN}set-aws-infra.sh에 실행 권한을 부여했습니다.${NC}"
+    chmod +x packages/scripts/upload-secrets.sh
+    echo -e "${GREEN}스크립트 파일들에 실행 권한을 부여했습니다.${NC}"
 }
 
-# Pure function to setup infrastructure package
-setup_infra_package() {
-    local package_scope=$1
-    local project_name=$2
-
-    echo -e "${GREEN}Infrastructure 패키지를 설정합니다...${NC}"
-    mkdir -p packages/infra
-    cd packages/infra
-
-    pnpm init
-
-    # Update package.json for infra package with enhanced scripts
-    if command -v jq &> /dev/null; then
-        jq --arg scope "$package_scope" '. + {"name": ($scope + "/infra"), "private": true, "scripts": {"bootstrap": "cdk bootstrap && cdk deploy --timeout 20 --require-approval never --concurrency 10", "deploy": "cdk deploy --hotswap --require-approval never --concurrency 10 --quiet", "destroy": "tsx destroy.ts", "update-dns": "tsx update_dns.ts"}}' package.json > package.json.tmp && mv package.json.tmp package.json
-    else
-        # Fallback: Use Node.js for safe JSON manipulation
-        node -e "
-        const fs = require('fs');
-        const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-        pkg.name = '$package_scope/infra';
-        pkg.private = true;
-        pkg.scripts = {
-            'bootstrap': 'cdk bootstrap && cdk deploy --timeout 20 --require-approval never --concurrency 10',
-            'deploy': 'cdk deploy --hotswap --require-approval never --concurrency 10 --quiet',
-            'destroy': 'tsx destroy.ts',
-            'update-dns': 'tsx update_dns.ts'
-        };
-        fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-        "
-    fi
-
-    echo -e "${GREEN}Infrastructure 의존성을 설치합니다...${NC}"
-    pnpm i @react-router/architect aws-cdk aws-cdk-lib constructs esbuild tsx dotenv dotenv-cli
-
-    echo -e "${GREEN}향상된 CDK Stack 파일을 생성합니다...${NC}"
-    copy_template "infra/cdk-stack.ts" "cdk-stack.ts"
-
-    echo -e "${GREEN}향상된 CDK 애플리케이션 파일을 생성합니다...${NC}"
-    copy_template "infra/cdk.ts" "cdk.ts"
-
-    echo -e "${GREEN}CDK 설정 파일을 생성합니다...${NC}"
-    copy_template "infra/cdk.json" "cdk.json"
-
-    echo -e "${GREEN}Lambda entry 파일을 생성합니다...${NC}"
-    mkdir -p entry
-    copy_template "infra/lambda.ts" "entry/lambda.ts" "$package_scope"
-
-    echo -e "${GREEN}DNS 관리 파일을 생성합니다...${NC}"
-    copy_template "infra/update_dns.ts" "update_dns.ts"
-
-    echo -e "${GREEN}스택 삭제 스크립트를 생성합니다...${NC}"
-    copy_template "infra/destroy.ts" "destroy.ts"
-
-    echo -e "${GREEN}Infrastructure README.md 파일을 생성합니다...${NC}"
-    copy_template "infra/infrastructure-readme.md" "README.md"
-
-    cd ../..
-}
 
 
 # Pure function to setup React Router web app
@@ -636,7 +589,6 @@ main() {
     setup_typescript
     setup_vscode_workspace
     setup_semantic_release "$pnpm_version"
-    create_aws_deployment_workflow "$pnpm_version"
     setup_package_json_private "$pnpm_version"
     setup_turborepo
     setup_husky
@@ -648,8 +600,7 @@ main() {
     setup_prettier_package "$package_scope"
     create_root_config_files "$package_scope"
     setup_react_router_web "$package_scope"
-    create_aws_infra_script "$package_scope"
-    setup_infra_package "$package_scope" "$project_name"
+    create_scripts_and_docs "$package_scope"
     create_project_readme
     create_env_template
     update_gitignore_with_env
