@@ -114,7 +114,7 @@ setup_typescript() {
     echo -e "${GREEN}TypeScript를 설치합니다...${NC}"
     pnpm i -D typescript
     
-    copy_template "tsconfig.json" "tsconfig.json"
+    copy_template "typescript/tsconfig.json" "tsconfig.json"
 }
 
 # Pure function to setup semantic-release
@@ -124,12 +124,12 @@ setup_semantic_release() {
     echo -e "${GREEN}semantic-release를 설치합니다...${NC}"
     pnpm i -D semantic-release @semantic-release/commit-analyzer @semantic-release/release-notes-generator @semantic-release/changelog @semantic-release/npm @semantic-release/github @semantic-release/git
     
-    copy_template "release.config.ts" "release.config.ts"
+    copy_template "semantic-release/release.config.ts" "release.config.ts"
 
     echo -e "${GREEN}GitHub Actions workflow 디렉토리를 생성합니다...${NC}"
     mkdir -p .github/workflows
 
-    copy_template "semantic-release.yml" ".github/workflows/semantic-release.yml" "$pnpm_version"
+    copy_template "semantic-release/semantic-release.yml" ".github/workflows/semantic-release.yml" "$pnpm_version"
 }
 
 # Pure function to create AWS Lambda deployment workflow
@@ -137,7 +137,7 @@ create_aws_deployment_workflow() {
     local pnpm_version=$1
 
     echo -e "${GREEN}AWS Lambda 배포 GitHub Actions workflow를 생성합니다...${NC}"
-    copy_template "deploy-aws-lambda.yml" ".github/workflows/deploy-aws-lambda.yml" "$pnpm_version"
+    copy_template "aws/deploy-aws-lambda.yml" ".github/workflows/deploy-aws-lambda.yml" "$pnpm_version"
 }
 
 # Pure function to setup package.json private field and scripts
@@ -196,22 +196,22 @@ create_workspace_structure() {
     mkdir -p apps packages
 
     echo -e "${GREEN}pnpm-workspace.yaml을 생성합니다...${NC}"
-    copy_template "pnpm-workspace.yaml" "pnpm-workspace.yaml"
+    copy_template "workspace/pnpm-workspace.yaml" "pnpm-workspace.yaml"
 
     echo -e "${GREEN}turbo.json을 생성합니다...${NC}"
-    copy_template "turbo.json" "turbo.json" "$package_scope"
+    copy_template "workspace/turbo.json" "turbo.json" "$package_scope"
 }
 
 # Pure function to create sync-catalog script
 create_sync_catalog_script() {
     echo -e "${GREEN}sync-catalog.mjs 파일을 생성합니다...${NC}"
-    copy_template "sync-catalog.mjs" "sync-catalog.mjs"
+    copy_template "scripts/sync-catalog.mjs" "sync-catalog.mjs"
 }
 
 # Pure function to setup scripts package README
 setup_scripts_readme() {
     echo -e "${GREEN}scripts 패키지 README.md 파일을 생성합니다...${NC}"
-    copy_template "scripts-readme.md" "packages/scripts/README.md"
+    copy_template "scripts/scripts-readme.md" "packages/scripts/README.md"
 }
 
 # Pure function to add scripts package to root devDependencies
@@ -262,10 +262,10 @@ setup_scripts_package() {
     fi
 
     echo -e "${GREEN}sync-versions.mjs 파일을 생성합니다...${NC}"
-    copy_template "sync-versions.mjs" "sync-versions.mjs"
+    copy_template "scripts/sync-versions.mjs" "sync-versions.mjs"
 
     echo -e "${GREEN}format.mjs 파일을 생성합니다...${NC}"
-    copy_template "format.mjs" "format.mjs"
+    copy_template "scripts/format.mjs" "format.mjs"
 
     # sync-catalog.mjs 파일 생성
     create_sync_catalog_script
@@ -323,7 +323,7 @@ setup_eslint_package() {
     pnpm i @eslint/js eslint globals typescript-eslint eslint-plugin-unused-imports @typescript-eslint/eslint-plugin @typescript-eslint/parser
 
     echo -e "${GREEN}ESLint 설정 파일을 생성합니다...${NC}"
-    copy_template "eslint-index.mjs" "index.mjs"
+    copy_template "eslint/eslint-index.mjs" "index.mjs"
 
     cd ../..
 }
@@ -357,7 +357,7 @@ setup_prettier_package() {
     pnpm i prettier prettier-plugin-classnames prettier-plugin-css-order @ianvs/prettier-plugin-sort-imports
 
     echo -e "${GREEN}Prettier 설정 파일을 생성합니다...${NC}"
-    copy_template "prettier-index.mjs" "index.mjs"
+    copy_template "prettier/prettier-index.mjs" "index.mjs"
 
     cd ../..
 }
@@ -383,7 +383,7 @@ create_aws_infra_script() {
     mkdir -p packages/scripts
     
     echo -e "${GREEN}set-aws-infra.sh 파일을 생성합니다...${NC}"
-    copy_template "set-aws-infra.sh" "packages/scripts/set-aws-infra.sh"
+    copy_template "scripts/set-aws-infra.sh" "packages/scripts/set-aws-infra.sh"
 
     # Grant execution permissions
     chmod +x packages/scripts/set-aws-infra.sh
@@ -425,26 +425,26 @@ setup_infra_package() {
     pnpm i @react-router/architect aws-cdk aws-cdk-lib constructs esbuild tsx dotenv dotenv-cli
 
     echo -e "${GREEN}향상된 CDK Stack 파일을 생성합니다...${NC}"
-    copy_template "cdk-stack.ts" "cdk-stack.ts"
+    copy_template "infra/cdk-stack.ts" "cdk-stack.ts"
 
     echo -e "${GREEN}향상된 CDK 애플리케이션 파일을 생성합니다...${NC}"
-    copy_template "cdk.ts" "cdk.ts"
+    copy_template "infra/cdk.ts" "cdk.ts"
 
     echo -e "${GREEN}CDK 설정 파일을 생성합니다...${NC}"
-    copy_template "cdk.json" "cdk.json"
+    copy_template "infra/cdk.json" "cdk.json"
 
     echo -e "${GREEN}Lambda entry 파일을 생성합니다...${NC}"
     mkdir -p entry
-    copy_template "lambda.ts" "entry/lambda.ts" "$package_scope"
+    copy_template "infra/lambda.ts" "entry/lambda.ts" "$package_scope"
 
     echo -e "${GREEN}DNS 관리 파일을 생성합니다...${NC}"
-    copy_template "update_dns.ts" "update_dns.ts"
+    copy_template "infra/update_dns.ts" "update_dns.ts"
 
     echo -e "${GREEN}스택 삭제 스크립트를 생성합니다...${NC}"
-    copy_template "destroy.ts" "destroy.ts"
+    copy_template "infra/destroy.ts" "destroy.ts"
 
     echo -e "${GREEN}Infrastructure README.md 파일을 생성합니다...${NC}"
-    copy_template "infrastructure-readme.md" "README.md"
+    copy_template "infra/infrastructure-readme.md" "README.md"
 
     cd ../..
 }
@@ -507,10 +507,10 @@ setup_react_router_web() {
     fi
 
     echo -e "${GREEN}eslint.config.mjs 파일을 생성합니다...${NC}"
-    copy_template "eslint.config.mjs" "eslint.config.mjs" "$package_scope"
+    copy_template "config/eslint.config.mjs" "eslint.config.mjs" "$package_scope"
 
     echo -e "${GREEN}prettier.config.mjs 파일을 생성합니다...${NC}"
-    copy_template "prettier.config.mjs" "prettier.config.mjs" "$package_scope"
+    copy_template "config/prettier.config.mjs" "prettier.config.mjs" "$package_scope"
 
     echo -e "${GREEN}tsconfig.json에 extends 설정을 추가합니다...${NC}"
     if command -v jq &> /dev/null; then
@@ -538,7 +538,7 @@ import type { FC } from '\''react'\''
 
     echo -e "${GREEN}root.tsx 파일의 ErrorBoundary 함수를 수정합니다...${NC}"
     # Copy ErrorBoundary template to temporary file
-    copy_template "error-boundary.tsx" "/tmp/new_error_boundary.tsx"
+    copy_template "react-router/error-boundary.tsx" "/tmp/new_error_boundary.tsx"
 
     # Replace ErrorBoundary function in root.tsx
     node -e "
@@ -556,7 +556,7 @@ import type { FC } from '\''react'\''
     rm -f /tmp/new_error_boundary.tsx
 
     echo -e "${GREEN}home.tsx 파일을 수정합니다...${NC}"
-    copy_template "home.tsx" "app/routes/home.tsx"
+    copy_template "react-router/home.tsx" "app/routes/home.tsx"
 
     cd ../..
 }
@@ -566,15 +566,15 @@ setup_vscode_workspace() {
     echo -e "${GREEN}.vscode 워크스페이스 설정을 생성합니다...${NC}"
     mkdir -p .vscode
     
-    copy_template "vscode-extensions.json" ".vscode/extensions.json"
-    copy_template "vscode-settings.json" ".vscode/settings.json"
+    copy_template "vscode/vscode-extensions.json" ".vscode/extensions.json"
+    copy_template "vscode/vscode-settings.json" ".vscode/settings.json"
 }
 
 # Pure function to create project README
 create_project_readme() {
     echo -e "${GREEN}프로젝트 README.md 파일을 생성합니다...${NC}"
     
-    copy_template "README.md" "README.md"
+    copy_template "project/README.md" "README.md"
 }
 
 # Pure function to create .env file template
@@ -592,7 +592,7 @@ create_env_template() {
         fi
     fi
     
-    copy_template ".env.template" ".env"
+    copy_template "env/.env.template" ".env"
     
     echo -e "${GREEN}.env 파일이 생성되었습니다.${NC}"
 }
