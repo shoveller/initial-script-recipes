@@ -83,9 +83,28 @@ install_dependencies() {
     pnpm i @react-router/architect aws-cdk aws-cdk-lib constructs esbuild tsx dotenv dotenv-cli
 }
 
-# Get scope name from user input or from root package.json
+# Get scope name from various sources
 get_scope_name() {
-    # Try to extract from root package.json first
+    # First try to extract from current packages/scripts/package.json
+    if [[ -f "package.json" ]]; then
+        local scope_from_scripts=$(node -e "
+            try {
+                const pkg = JSON.parse(require('fs').readFileSync('package.json', 'utf8'));
+                const name = pkg.name || '';
+                const match = name.match(/^(@[^/]+)\//);
+                console.log(match ? match[1] : '');
+            } catch (e) {
+                console.log('');
+            }
+        ")
+        
+        if [[ -n "$scope_from_scripts" ]]; then
+            echo "$scope_from_scripts"
+            return
+        fi
+    fi
+    
+    # Then try to extract from root package.json
     if [[ -f "../../package.json" ]]; then
         local scope_from_package=$(node -e "
             try {
@@ -104,7 +123,7 @@ get_scope_name() {
         fi
     fi
     
-    # Ask user for scope name if not found
+    # As a last resort, ask user for scope name
     echo -e "${BLUE}스코프 이름을 입력하세요 (예: @company):${NC}" >&2
     read -r scope_name </dev/tty
     echo "$scope_name"
