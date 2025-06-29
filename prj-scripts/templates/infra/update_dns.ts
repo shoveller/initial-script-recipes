@@ -60,14 +60,47 @@ function createDNSConfig(): DNSConfig | null {
 }
 
 /**
- * 전체 도메인을 생성하는 순수함수
+ * 현재 Git 브랜치를 가져오는 순수함수
+ */
+function getCurrentBranch(): string {
+  try {
+    return execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim()
+  } catch {
+    console.warn('⚠️ Git 브랜치 정보를 가져올 수 없습니다. main 브랜치로 설정합니다.')
+
+    return 'main'
+  }
+}
+
+/**
+ * 브랜치와 서브도메인 정보를 기반으로 전체 도메인을 생성하는 순수함수
+ *
+ * 도메인 생성 규칙:
+ * 1. 도메인만 있을 경우 main 브랜치 푸시: example.com
+ * 2. 도메인만 있을 경우 develop 브랜치 푸시: develop.example.com
+ * 3. 도메인과 서브도메인이 있을 경우 main 브랜치 푸시: sub.example.com
+ * 4. 도메인과 서브도메인이 있을 경우 develop 브랜치 푸시: develop-sub.example.com
  */
 function getFullDomain(domain: string, subdomain?: string): string {
-  if (subdomain) {
-    return `${subdomain}.${domain}`
+  const currentBranch = getCurrentBranch()
+
+  // main 브랜치인 경우
+  if (currentBranch === 'main') {
+    // 서브도메인이 있으면 서브도메인 사용, 없으면 메인 도메인 사용
+    if (subdomain) {
+      return `${subdomain}.${domain}`
+    }
+
+    return domain
   }
 
-  return domain
+  // main이 아닌 브랜치인 경우 - 서브도메인이 있는 경우
+  if (subdomain) {
+    return `${currentBranch}-${subdomain}.${domain}`
+  }
+
+  // main이 아닌 브랜치인 경우 - 서브도메인이 없는 경우
+  return `${currentBranch}.${domain}`
 }
 
 /**
@@ -86,10 +119,10 @@ function createDNSRecord(dnsConfig: DNSConfig): CloudflareRecord {
  * Wrangler CLI 명령어를 생성하는 순수함수
  */
 function createWranglerCommand(
-  action: 'create' | 'update' | 'list' | 'delete',
-  domain: string,
-  record?: CloudflareRecord,
-  recordId?: string
+    action: 'create' | 'update' | 'list' | 'delete',
+    domain: string,
+    record?: CloudflareRecord,
+    recordId?: string
 ): string {
   if (action === 'list') {
     return `wrangler dns list --zone ${domain} --type ${record?.type || 'A'}`
@@ -120,15 +153,15 @@ function createWranglerCommand(
  * Wrangler CLI 출력에서 기존 레코드를 찾는 순수함수
  */
 function parseWranglerOutput(
-  output: string,
-  fullDomain: string,
-  recordType: string,
-  dnsConfig: DNSConfig
+    output: string,
+    fullDomain: string,
+    recordType: string,
+    dnsConfig: DNSConfig
 ): CloudflareRecord | null {
   const lines = output.split('\n')
 
   const matchingLine = lines.find(
-    (line) => line.includes(fullDomain) && line.includes(recordType)
+      (line) => line.includes(fullDomain) && line.includes(recordType)
   )
 
   if (matchingLine) {
@@ -183,7 +216,7 @@ export class CloudflareDNSUpdater {
 
     if (!_config) {
       throw new Error(
-        '❌ DOMAIN 환경변수가 설정되지 않아 DNS 업데이트를 건너뜁니다.'
+          '❌ DOMAIN 환경변수가 설정되지 않아 DNS 업데이트를 건너뜁니다.'
       )
     }
 
@@ -234,7 +267,7 @@ export class CloudflareDNSUpdater {
       execSync('wrangler --version', { stdio: 'pipe' })
     } catch {
       throw new Error(
-        '❌ Wrangler CLI가 설치되지 않았습니다. npm install -g wrangler 명령으로 설치해주세요.'
+          '❌ Wrangler CLI가 설치되지 않았습니다. npm install -g wrangler 명령으로 설치해주세요.'
       )
     }
   }
@@ -253,15 +286,15 @@ export class CloudflareDNSUpdater {
       })
 
       const fullDomain = getFullDomain(
-        this.dnsConfig.domain,
-        this.dnsConfig.subdomain
+          this.dnsConfig.domain,
+          this.dnsConfig.subdomain
       )
 
       return parseWranglerOutput(
-        output,
-        fullDomain,
-        this.dnsConfig.recordType,
-        this.dnsConfig
+          output,
+          fullDomain,
+          this.dnsConfig.recordType,
+          this.dnsConfig
       )
     } catch {
       console.log(this.messages.recordNotFound)
@@ -275,9 +308,9 @@ export class CloudflareDNSUpdater {
    */
   private async executeWranglerCreate(record: CloudflareRecord): Promise<void> {
     const command = createWranglerCommand(
-      'create',
-      this.dnsConfig.domain,
-      record
+        'create',
+        this.dnsConfig.domain,
+        record
     )
 
     execSync(command, {
@@ -290,14 +323,14 @@ export class CloudflareDNSUpdater {
    * DNS 레코드 업데이트 (Wrangler CLI 사용)
    */
   private async executeWranglerUpdate(
-    recordId: string,
-    record: CloudflareRecord
+      recordId: string,
+      record: CloudflareRecord
   ): Promise<void> {
     const command = createWranglerCommand(
-      'update',
-      this.dnsConfig.domain,
-      record,
-      recordId
+        'update',
+        this.dnsConfig.domain,
+        record,
+        recordId
     )
 
     execSync(command, {
@@ -340,10 +373,10 @@ export class CloudflareDNSUpdater {
    */
   private async executeWranglerDelete(recordId: string): Promise<void> {
     const command = createWranglerCommand(
-      'delete',
-      this.dnsConfig.domain,
-      undefined,
-      recordId
+        'delete',
+        this.dnsConfig.domain,
+        undefined,
+        recordId
     )
 
     execSync(command, {
@@ -390,7 +423,7 @@ async function runMain(): Promise<void> {
     // DOMAIN이 없으면 DNS 업데이트를 건너뜀
     if (!dnsConfig) {
       console.log(
-        'ℹ️ DOMAIN 환경변수가 설정되지 않아 DNS 업데이트를 건너뜁니다.'
+          'ℹ️ DOMAIN 환경변수가 설정되지 않아 DNS 업데이트를 건너뜁니다.'
       )
 
       return
