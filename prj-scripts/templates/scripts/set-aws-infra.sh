@@ -72,8 +72,12 @@ copy_infra_templates() {
     fi
     
     # Copy all template files to packages/infra
-    cp -r "$templates_dir"/* packages/infra/
-    
+    if [[ -n "$(ls -A "$templates_dir" 2>/dev/null)" ]]; then
+        cp -r "$templates_dir"/* packages/infra/
+    else
+        echo -e "${YELLOW}템플릿 디렉토리가 비어있습니다. 건너뜁니다.${NC}"
+    fi
+
     echo -e "${GREEN}템플릿 파일들이 복사되었습니다.${NC}"
 }
 
@@ -83,28 +87,9 @@ install_dependencies() {
     pnpm i @react-router/architect aws-cdk aws-cdk-lib constructs esbuild tsx dotenv dotenv-cli
 }
 
-# Get scope name from various sources
+# Get scope name from user input or from root package.json
 get_scope_name() {
-    # First try to extract from current packages/scripts/package.json
-    if [[ -f "package.json" ]]; then
-        local scope_from_scripts=$(node -e "
-            try {
-                const pkg = JSON.parse(require('fs').readFileSync('package.json', 'utf8'));
-                const name = pkg.name || '';
-                const match = name.match(/^(@[^/]+)\//);
-                console.log(match ? match[1] : '');
-            } catch (e) {
-                console.log('');
-            }
-        ")
-        
-        if [[ -n "$scope_from_scripts" ]]; then
-            echo "$scope_from_scripts"
-            return
-        fi
-    fi
-    
-    # Then try to extract from root package.json
+    # Try to extract from root package.json first
     if [[ -f "../../package.json" ]]; then
         local scope_from_package=$(node -e "
             try {
@@ -116,14 +101,14 @@ get_scope_name() {
                 console.log('');
             }
         ")
-        
+
         if [[ -n "$scope_from_package" ]]; then
             echo "$scope_from_package"
             return
         fi
     fi
-    
-    # As a last resort, ask user for scope name
+
+    # Ask user for scope name if not found
     echo -e "${BLUE}스코프 이름을 입력하세요 (예: @company):${NC}" >&2
     read -r scope_name </dev/tty
     echo "$scope_name"
