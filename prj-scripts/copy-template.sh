@@ -11,7 +11,7 @@ NC='\033[0m' # No Color
 copy_template() {
     local template_file=$1
     local target_file=$2
-    local pnpm_version=${3:-""}
+    local substitution_value=${3:-""}
     
     local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     local template_path="$script_dir/templates/$template_file"
@@ -23,9 +23,10 @@ copy_template() {
     
     echo -e "${GREEN}$target_file 파일을 생성합니다...${NC}"
     
-    if [[ -n "$pnpm_version" ]]; then
-        # Replace pnpm version placeholder
-        sed "s/\$pnpm_version/$pnpm_version/g" "$template_path" > "$target_file"
+    if [[ -n "$substitution_value" ]]; then
+        # Replace both pnpm version and package scope placeholders with the provided value
+        # This allows flexibility - pass pnpm version for pnpm placeholders, package scope for package scope placeholders
+        sed -e "s/\$pnpm_version/$substitution_value/g" -e "s/\$package_scope/$substitution_value/g" "$template_path" > "$target_file"
     else
         cp "$template_path" "$target_file"
     fi
