@@ -395,6 +395,20 @@ create_scripts_and_docs() {
     echo -e "${GREEN}HOW_TO_GET_TOKENS.md 문서를 생성합니다...${NC}"
     copy_template "scripts/HOW_TO_GET_TOKENS.md" "packages/scripts/HOW_TO_GET_TOKENS.md"
 
+    echo -e "${GREEN}인프라 템플릿 디렉토리를 생성합니다...${NC}"
+    mkdir -p packages/scripts/infra
+
+    echo -e "${GREEN}인프라 템플릿 파일들을 복사합니다...${NC}"
+    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local infra_templates_dir="$script_dir/templates/infra"
+    
+    if [[ -d "$infra_templates_dir" && -n "$(ls -A "$infra_templates_dir" 2>/dev/null)" ]]; then
+        cp -r "$infra_templates_dir"/* packages/scripts/infra/
+        echo -e "${GREEN}인프라 템플릿 파일들이 복사되었습니다.${NC}"
+    else
+        echo -e "${YELLOW}인프라 템플릿 디렉토리가 비어있거나 없습니다. 건너뜁니다.${NC}"
+    fi
+
     # Grant execution permissions
     chmod +x packages/scripts/set-aws-infra.sh
     chmod +x packages/scripts/upload-secrets.sh
