@@ -1,5 +1,3 @@
-#!/bin/bash
-
 # GitHub 리포지토리 시크릿 업로드 스크립트
 # .env 파일의 모든 환경변수를 GitHub 리포지토리 시크릿으로 업로드합니다.
 
@@ -14,19 +12,19 @@ NC='\033[0m' # No Color
 
 # 로그 함수들
 log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+    printf "${BLUE}[INFO]${NC} %s\n" "$1"
 }
 
 log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+    printf "${GREEN}[SUCCESS]${NC} %s\n" "$1"
 }
 
 log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
+    printf "${YELLOW}[WARNING]${NC} %s\n" "$1"
 }
 
 log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+    printf "${RED}[ERROR]${NC} %s\n" "$1"
 }
 
 # GitHub CLI 설치 확인
@@ -49,7 +47,7 @@ check_gh_auth() {
 
 # .env 파일 존재 확인
 check_env_file() {
-    if [[ ! -f ".env" ]]; then
+    if [ ! -f ".env" ]; then
         log_warning ".env 파일을 찾을 수 없습니다. 시크릿 업로드를 건너뜁니다."
         exit 0
     fi
@@ -57,16 +55,20 @@ check_env_file() {
 
 # 현재 리포지토리 정보 가져오기
 get_current_repo() {
-    if git rev-parse --is-inside-work-tree &> /dev/null; then
+    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         local origin_url=$(git config --get remote.origin.url)
-        if [[ $origin_url =~ github\.com[:/]([^/]+/[^/]+) ]]; then
-            REPO="${BASH_REMATCH[1]}"
-            REPO="${REPO%.git}"  # .git 확장자 제거
-            log_info "현재 리포지토리 감지: $REPO"
-        else
-            log_error "GitHub 리포지토리가 아닙니다."
-            exit 1
-        fi
+        # GitHub URL에서 owner/repo 추출 (POSIX 호환)
+        case "$origin_url" in
+            *github.com:*|*github.com/*)
+                # SSH 또는 HTTPS 형식에서 owner/repo 추출
+                REPO=$(echo "$origin_url" | sed -E 's|.*github\.com[:/]([^/]+/[^/]+).*|\1|' | sed 's|\.git$||')
+                log_info "현재 리포지토리 감지: $REPO"
+                ;;
+            *)
+                log_error "GitHub 리포지토리가 아닙니다."
+                exit 1
+                ;;
+        esac
     else
         log_error "Git 리포지토리가 아닙니다."
         exit 1
@@ -76,11 +78,24 @@ get_current_repo() {
 # 환경변수 이름 유효성 검사
 validate_secret_name() {
     local name="$1"
-    # GitHub 시크릿 이름 규칙: 영문자, 숫자, 밑줄만 허용
-    if [[ ! $name =~ ^[A-Z0-9_]+$ ]]; then
-        return 1
-    fi
-    return 0
+    # GitHub 시크릿 이름 규칙: 영문자, 숫자, 밑줄만 허용 (POSIX 호환)
+    case "$name" in
+        *[!A-Z0-9_]*)
+            return 1
+            ;;
+        [0-9]*)
+            return 1  # 숫자로 시작하면 안됨
+            ;;
+        GITHUB_*)
+            return 1  # GITHUB_로 시작하면 안됨
+            ;;
+        "")
+            return 1  # 빈 문자열
+            ;;
+        *)
+            return 0
+            ;;
+    esac
 }
 
 # .env 파일에서 환경변수 읽기 및 처리
@@ -88,92 +103,111 @@ process_env_file() {
     local secrets_count=0
     local skipped_count=0
     local uploaded_count=0
-    
+
     log_info ".env 파일 처리 중"
-    
-    # 중요한 환경변수 목록 (우선 처리)
-    local important_vars=("AWS_ACCOUNT_ID" "AWS_DEFAULT_REGION" "CLOUDFLARE_API_TOKEN" "CLOUDFLARE_ACCOUNT_ID" "DOMAIN" "SUBDOMAIN" "RECORD_TYPE" "TTL" "TELEGRAM_TOKEN" "TELEGRAM_CHAT_ID")
-    
-    # .env 파일을 한 줄씩 읽기
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        # 빈 줄이나 주석 라인 건너뛰기
-        if [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]]; then
-            continue
-        fi
-        
-        # KEY=VALUE 형식 파싱
-        if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
-            local key="${BASH_REMATCH[1]}"
-            local value="${BASH_REMATCH[2]}"
-            
-            # 따옴표 제거 (앞뒤 따옴표가 일치하는 경우)
-            if [[ "$value" =~ ^\"(.*)\"$ ]] || [[ "$value" =~ ^\'(.*)\'$ ]]; then
-                value="${BASH_REMATCH[1]}"
-            fi
-            
-            # 키 이름을 대문자로 변환
-            key=$(echo "$key" | tr '[:lower:]' '[:upper:]')
-            
-            # 시크릿 이름 유효성 검사
-            if ! validate_secret_name "$key"; then
-                log_warning "유효하지 않은 시크릿 이름 건너뛰기: $key"
-                ((skipped_count++))
+
+    # .env 파일을 한 줄씩 읽기 (POSIX 호환)
+    while IFS= read -r line || [ -n "$line" ]; do
+        # 빈 줄이나 주석 라인 건너뛰기 (POSIX 호환)
+        case "$line" in
+            ""|\#*|*[[:space:]]\#*)
                 continue
-            fi
-            
-            # 빈 값 확인
-            if [[ -z "$value" ]]; then
-                log_warning "빈 값인 시크릿 건너뛰기: $key"
-                ((skipped_count++))
-                continue
-            fi
-            
-            ((secrets_count++))
-            
-            log_info "시크릿 업로드 중: $key"
-            
-            # GitHub 시크릿 업로드
-            if gh secret set "$key" --body "$value" --repo "$REPO" 2>/dev/null; then
-                log_success "시크릿 업로드 완료: $key"
-                ((uploaded_count++))
-            else
-                log_error "시크릿 업로드 실패: $key"
-            fi
-        else
-            log_warning "유효하지 않은 라인 형식 건너뛰기: $line"
-        fi
+                ;;
+        esac
+
+        # KEY=VALUE 형식 파싱 (POSIX 호환)
+        case "$line" in
+            [A-Za-z_]*=*)
+                key=$(echo "$line" | cut -d= -f1)
+                value=$(echo "$line" | cut -d= -f2-)
+
+                # 따옴표 제거 (앞뒤 따옴표가 일치하는 경우)
+                case "$value" in
+                    \"*\")
+                        value=$(echo "$value" | sed 's/^"\(.*\)"$/\1/')
+                        ;;
+                    \'*\')
+                        value=$(echo "$value" | sed "s/^'\(.*\)'$/\1/")
+                        ;;
+                esac
+
+                # 키 이름을 대문자로 변환
+                key=$(echo "$key" | tr '[:lower:]' '[:upper:]')
+
+                # 시크릿 이름 유효성 검사
+                if ! validate_secret_name "$key"; then
+                    log_warning "유효하지 않은 시크릿 이름 건너뛰기: $key"
+                    skipped_count=$((skipped_count + 1))
+                    continue
+                fi
+
+                # 빈 값 확인
+                if [ -z "$value" ]; then
+                    log_warning "빈 값인 시크릿 건너뛰기: $key"
+                    skipped_count=$((skipped_count + 1))
+                    continue
+                fi
+
+                secrets_count=$((secrets_count + 1))
+
+                log_info "시크릿 업로드 중: $key"
+
+                # GitHub 시크릿 업로드
+                if gh secret set "$key" --body "$value" --repo "$REPO" 2>/dev/null; then
+                    log_success "시크릿 업로드 완료: $key"
+                    uploaded_count=$((uploaded_count + 1))
+                else
+                    log_error "시크릿 업로드 실패: $key"
+                fi
+                ;;
+            *)
+                log_warning "유효하지 않은 라인 형식 건너뛰기: $line"
+                ;;
+        esac
     done < ".env"
-    
+
     echo ""
     log_info "=== 처리 결과 요약 ==="
     log_info "총 처리된 시크릿: $secrets_count"
     log_info "건너뛴 시크릿: $skipped_count"
     log_info "성공적으로 업로드된 시크릿: $uploaded_count"
-    
-    if [[ $uploaded_count -lt $secrets_count ]]; then
+
+    if [ $uploaded_count -lt $secrets_count ]; then
         log_warning "일부 시크릿 업로드에 실패했습니다."
     fi
 }
 
 # 메인 함수
 main() {
+    # GitHub Actions 또는 CI 환경 체크를 맨 앞으로 이동
+    # semantic-release 환경 포함한 모든 CI 환경 감지
+    if [ "$CI" = "true" ] || [ "$GITHUB_ACTIONS" = "true" ] || [ -n "$RUNNER_OS" ] || [ -n "$GITHUB_WORKFLOW" ] || [ -n "$GITHUB_RUN_ID" ] || [ -n "$GITHUB_REF" ] || [ -n "$SEMANTIC_RELEASE" ]; then
+        echo "CI 환경에서 시크릿 업로드를 건너뜁니다."
+        exit 0
+    fi
+
     log_info "GitHub 시크릿 자동 업로드 시작 (pre-push hook)"
     log_info "=================================================="
-    
+
     # 사전 확인
     check_gh_cli
     check_gh_auth
     check_env_file
     get_current_repo
-    
-    # 확인 프롬프트
+
+    # 확인 프롬프트 (로컬 환경에서만)
     echo ""
-    read -p "GitHub Secrets에 .env 파일의 환경변수를 업로드하시겠습니까? (y/N): " -n 1 -r
+    printf "GitHub Secrets에 .env 파일의 환경변수를 업로드하시겠습니까? (y/N): "
+    read -r REPLY
     echo ""
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        log_info "시크릿 업로드를 건너뜁니다."
-        exit 0
-    fi
+    case "$REPLY" in
+        y|Y|yes|Yes)
+            ;;
+        *)
+            log_info "시크릿 업로드를 건너뜁니다."
+            exit 0
+            ;;
+    esac
     echo ""
     
     # 환경변수 처리
