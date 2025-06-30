@@ -499,8 +499,9 @@ import type { FC } from '\''react'\''
     const content = fs.readFileSync('app/root.tsx', 'utf8');
     const newErrorBoundary = fs.readFileSync('/tmp/new_error_boundary.tsx', 'utf8');
     
-    // Remove existing ErrorBoundary function
-    const result = content.replace(/export function ErrorBoundary[^}]*}(?:\s*})*/, newErrorBoundary);
+    // Find and replace the entire ErrorBoundary function
+    // This regex matches from 'export function ErrorBoundary' to the closing brace of the function
+    const result = content.replace(/export function ErrorBoundary\([^)]*\)[^{]*\{[\s\S]*?\n\}/, newErrorBoundary);
     
     fs.writeFileSync('app/root.tsx', result);
     "
