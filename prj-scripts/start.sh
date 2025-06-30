@@ -179,14 +179,11 @@ setup_husky() {
     echo -e "${GREEN}pre-commit 훅을 설정합니다...${NC}"
     cat > .husky/pre-commit << 'EOF'
 pnpm format
-
-# GitHub 시크릿 업로드 (선택사항)
-# 다음 라인의 주석을 해제하여 커밋 전 자동 시크릿 업로드를 활성화할 수 있습니다
-# if [[ -f "packages/scripts/upload-secrets.sh" && -f ".env" ]]; then
-#     echo "Uploading secrets to GitHub..."
-#     packages/scripts/upload-secrets.sh --force
-# fi
 EOF
+
+    echo -e "${GREEN}pre-push 훅을 설정합니다...${NC}"
+    copy_template "husky/pre-push" ".husky/pre-push"
+    chmod +x .husky/pre-push
 }
 
 # Pure function to create workspace structure with complete turbo config
@@ -386,11 +383,6 @@ create_scripts_and_docs() {
     echo -e "${GREEN}set-aws-infra.sh 파일을 생성합니다...${NC}"
     copy_template "scripts/set-aws-infra.sh" "packages/scripts/set-aws-infra.sh"
 
-    echo -e "${GREEN}upload-secrets.sh 파일을 생성합니다...${NC}"
-    copy_template "scripts/upload-secrets.sh" "packages/scripts/upload-secrets.sh"
-
-    echo -e "${GREEN}SECRETS_UPLOAD.md 문서를 생성합니다...${NC}"
-    copy_template "scripts/SECRETS_UPLOAD.md" "packages/scripts/SECRETS_UPLOAD.md"
 
     echo -e "${GREEN}HOW_TO_GET_TOKENS.md 문서를 생성합니다...${NC}"
     copy_template "scripts/HOW_TO_GET_TOKENS.md" "packages/scripts/HOW_TO_GET_TOKENS.md"
@@ -410,7 +402,6 @@ create_scripts_and_docs() {
 
     # Grant execution permissions
     chmod +x packages/scripts/set-aws-infra.sh
-    chmod +x packages/scripts/upload-secrets.sh
     echo -e "${GREEN}스크립트 파일들에 실행 권한을 부여했습니다.${NC}"
 }
 
