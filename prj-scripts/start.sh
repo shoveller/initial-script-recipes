@@ -371,10 +371,10 @@ create_root_config_files() {
     echo -e "${GREEN}루트 설정 파일을 생성합니다...${NC}"
 
     # Create eslint.config.mjs
-    echo "export { default } from '$package_scope/eslint'" > eslint.config.mjs
+    echo "export { default } from \"$package_scope/eslint\"" > eslint.config.mjs
 
     # Create prettier.config.mjs
-    echo "export { default } from '$package_scope/prettier'" > prettier.config.mjs
+    echo "export { default } from \"$package_scope/prettier\"" > prettier.config.mjs
 }
 
 # Pure function to create scripts and documentation
