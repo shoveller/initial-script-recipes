@@ -399,8 +399,7 @@ create_scripts_and_docs() {
     mkdir -p packages/scripts/infra
 
     echo -e "${GREEN}인프라 템플릿 파일들을 복사합니다...${NC}"
-    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    local infra_templates_dir="$script_dir/templates/infra"
+    local infra_templates_dir="$SCRIPT_DIR/templates/infra"
     
     if [[ -d "$infra_templates_dir" && -n "$(ls -A "$infra_templates_dir" 2>/dev/null)" ]]; then
         cp -r "$infra_templates_dir"/* packages/scripts/infra/
