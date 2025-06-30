@@ -607,7 +607,7 @@ main() {
     setup_vscode_workspace
 
     echo -e "${GREEN}=== 프로젝트 스캐폴딩이 완료되었습니다! ===${NC}"
-    echo -e "${BLUE}프로젝트 디렉토리: $(pwd)${NC}"
+    echo -e "${BLUE}cd $(pwd)${NC}"
 }
 
 # Run main function
