@@ -231,7 +231,7 @@ add_scripts_to_root_dependencies() {
         const fs = require('fs');
         const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
         pkg.devDependencies = pkg.devDependencies || {};
-        pkg.devDependencies['$package_scope/scripts'] = 'workspace:*';
+        pkg.devDependencies[\"$package_scope/scripts\"] = 'workspace:*';
         fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
         "
     fi
@@ -255,7 +255,7 @@ setup_scripts_package() {
         node -e "
         const fs = require('fs');
         const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-        pkg.name = '$package_scope/scripts';
+        pkg.name = \"$package_scope/scripts\";
         pkg.private = true;
         pkg.main = 'index.js';
         pkg.scripts = { 'version': 'node sync-versions.mjs' };
@@ -281,7 +281,7 @@ setup_scripts_package() {
         node -e "
         const fs = require('fs');
         const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-        pkg.name = '$package_scope/scripts';
+        pkg.name = \"$package_scope/scripts\";
         pkg.private = true;
         pkg.main = 'index.js';
         pkg.bin = {
@@ -314,7 +314,7 @@ setup_eslint_package() {
         node -e "
         const fs = require('fs');
         const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-        pkg.name = '$package_scope/eslint';
+        pkg.name = \"$package_scope/eslint\";
         pkg.private = true;
         pkg.main = 'index.mjs';
         fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
@@ -348,7 +348,7 @@ setup_prettier_package() {
         node -e "
         const fs = require('fs');
         const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-        pkg.name = '$package_scope/prettier';
+        pkg.name = \"$package_scope/prettier\";
         pkg.private = true;
         pkg.main = 'index.mjs';
         fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
@@ -424,7 +424,7 @@ setup_react_router_web() {
         node -e "
         const fs = require('fs');
         const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-        pkg.name = '$package_scope/web';
+        pkg.name = \"$package_scope/web\";
         fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
         "
     fi
@@ -438,9 +438,9 @@ setup_react_router_web() {
         const fs = require('fs');
         const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
         pkg.devDependencies = pkg.devDependencies || {};
-        pkg.devDependencies['$package_scope/scripts'] = 'workspace:*';
-        pkg.devDependencies['$package_scope/eslint'] = 'workspace:*';
-        pkg.devDependencies['$package_scope/prettier'] = 'workspace:*';
+        pkg.devDependencies[\"$package_scope/scripts\"] = 'workspace:*';
+        pkg.devDependencies[\"$package_scope/eslint\"] = 'workspace:*';
+        pkg.devDependencies[\"$package_scope/prettier\"] = 'workspace:*';
         fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
         "
     fi
