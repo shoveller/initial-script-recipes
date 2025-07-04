@@ -8,13 +8,16 @@
 # - 환경이 없으면 자동 생성
 #
 # 지원하는 파일 및 매핑:
-# - .env                 → Repository secrets/variables (예: API_KEY=secret123, base_url=https://api.com)
-# - .env.{environment}   → Environment secrets/variables (예: .env.staging → staging 환경)
-# - .env.org            → Organization secrets/variables (예: SHARED_DB_URL=postgres://...)
+# - .env                     → Repository secrets (예: API_KEY=secret123)
+# - .env.var                 → Repository variables (예: BASE_URL=https://api.com)
+# - .env.{environment}       → Environment secrets (예: .env.staging → staging 환경)
+# - .env.{environment}.var   → Environment variables (예: .env.staging.var → staging 환경)
+# - .env.org                 → Organization secrets (예: SHARED_DB_URL=postgres://...)
+# - .env.org.var             → Organization variables (예: PUBLIC_API_URL=https://api.com)
 #
-# 저장 타입 결정:
-# - 소문자 포함 변수명    → Variable로 저장 (예: base_url, app_name)
-# - 모두 대문자 변수명    → Secret으로 저장 (예: API_KEY, DB_PASSWORD)
+# 파일명 기반 저장 타입 결정:
+# - .var 확장자 없음      → Secret으로 저장 (암호화, 로그 마스킹)
+# - .var 확장자 있음      → Variable로 저장 (평문, 로그 노출)
 
 set -e  # 오류 발생 시 스크립트 중단
 
@@ -80,7 +83,7 @@ check_account_type() {
 find_env_files() {
     local env_files=""
 
-    # .env 파일 패턴들을 순서대로 확인
+    # .env 파일 패턴들을 순서대로 확인 (Variable 파일 포함)
     for pattern in ".env" ".env.*"; do
         for file in $pattern; do
             if [ -f "$file" ]; then
@@ -148,41 +151,40 @@ validate_secret_name() {
     esac
 }
 
-# 파일명에 따른 시크릿 타입 결정
+# 파일명에 따른 시크릿 타입 및 저장 타입 결정
 determine_secret_type() {
     local filename="$1"
 
     case "$filename" in
-        ".env")
-            echo "repo"
+        ".env.org.var")
+            echo "org:variable"
             ;;
         ".env.org")
-            echo "org"
+            echo "org:secret"
+            ;;
+        ".env.var")
+            echo "repo:variable"
+            ;;
+        ".env")
+            echo "repo:secret"
+            ;;
+        ".env."*".var")
+            # .env.{environment}.var 형태
+            local env_name=$(echo "$filename" | sed 's/^\.env\.//' | sed 's/\.var$//')
+            echo "env:$env_name:variable"
             ;;
         ".env."*)
             # .env.{environment} 형태
             local env_name=$(echo "$filename" | sed 's/^\.env\.//')
-            echo "env:$env_name"
+            echo "env:$env_name:secret"
             ;;
         *)
             log_warning "알 수 없는 .env 파일 형식: $filename"
-            echo "repo"  # 기본값으로 repository 타입 사용
+            echo "repo:secret"  # 기본값으로 repository secret 사용
             ;;
     esac
 }
 
-# 환경변수 이름에 따른 저장 타입 결정 (Variable vs Secret)
-determine_storage_type() {
-    local key="$1"
-    
-    # 소문자가 포함된 변수는 Variable로 처리
-    if echo "$key" | grep -q '[a-z]'; then
-        echo "variable"
-    else
-        # 모두 대문자인 변수는 Secret으로 처리
-        echo "secret"
-    fi
-}
 
 # 환경 생성 함수
 create_environment() {
@@ -221,31 +223,41 @@ check_environment_exists() {
 upload_env_var() {
     local key="$1"
     local value="$2"
-    local secret_type="$3"
-    local storage_type="$4"
-
+    local type_info="$3"
+    
+    # 타입 정보 파싱 (repo:secret, org:variable, env:staging:variable 등)
+    local secret_type=$(echo "$type_info" | cut -d: -f1)
+    local storage_type=$(echo "$type_info" | cut -d: -f2)
+    
     case "$secret_type" in
         "repo")
             if [ "$storage_type" = "variable" ]; then
-                gh variable set "$key" --body "$value" --repo "$REPO" 2>/dev/null
+                log_info "GitHub CLI 명령어 실행: gh variable set $key --repo $REPO"
+                gh variable set "$key" --body "$value" --repo "$REPO"
             else
-                gh secret set "$key" --body "$value" --repo "$REPO" 2>/dev/null
+                log_info "GitHub CLI 명령어 실행: gh secret set $key --repo $REPO"
+                gh secret set "$key" --body "$value" --repo "$REPO"
             fi
             ;;
         "org")
             if [ "$ACCOUNT_TYPE" = "Organization" ]; then
                 if [ "$storage_type" = "variable" ]; then
-                    gh variable set "$key" --body "$value" --org "$ORG" 2>/dev/null
+                    log_info "GitHub CLI 명령어 실행: gh variable set $key --org $ORG"
+                    gh variable set "$key" --body "$value" --org "$ORG"
                 else
-                    gh secret set "$key" --body "$value" --org "$ORG" 2>/dev/null
+                    log_info "GitHub CLI 명령어 실행: gh secret set $key --org $ORG"
+                    gh secret set "$key" --body "$value" --org "$ORG"
                 fi
             else
                 log_warning "개인 계정에서는 조직 시크릿/변수를 설정할 수 없습니다: $key"
                 return 1
             fi
             ;;
-        "env:"*)
-            local env_name=$(echo "$secret_type" | sed 's/^env://')
+        "env")
+            local env_name=$(echo "$type_info" | cut -d: -f2)
+            local env_storage_type=$(echo "$type_info" | cut -d: -f3)
+            
+            log_info "환경 처리: env_name=$env_name, storage_type=$env_storage_type"
             
             # 환경 존재 확인
             if ! check_environment_exists "$env_name"; then
@@ -258,10 +270,12 @@ upload_env_var() {
                 fi
             fi
             
-            if [ "$storage_type" = "variable" ]; then
-                gh variable set "$key" --body "$value" --env "$env_name" --repo "$REPO" 2>/dev/null
+            if [ "$env_storage_type" = "variable" ]; then
+                log_info "GitHub CLI 명령어 실행: gh variable set $key --env $env_name --repo $REPO"
+                gh variable set "$key" --body "$value" --env "$env_name" --repo "$REPO"
             else
-                gh secret set "$key" --body "$value" --env "$env_name" --repo "$REPO" 2>/dev/null
+                log_info "GitHub CLI 명령어 실행: gh secret set $key --env $env_name --repo $REPO"
+                gh secret set "$key" --body "$value" --env "$env_name" --repo "$REPO"
             fi
             ;;
         *)
@@ -274,12 +288,16 @@ upload_env_var() {
 # .env 파일에서 환경변수 읽기 및 처리
 process_env_file() {
     local filename="$1"
-    local secret_type="$2"
+    local type_info="$2"
     local secrets_count=0
     local skipped_count=0
     local uploaded_count=0
 
-    log_info "$filename 파일 처리 중 (타입: $secret_type)"
+    # 타입 정보에서 표시용 정보 추출
+    local secret_type=$(echo "$type_info" | cut -d: -f1)
+    local storage_type=$(echo "$type_info" | cut -d: -f2)
+    
+    log_info "$filename 파일 처리 중 (타입: $secret_type $storage_type)"
 
     # .env 파일을 한 줄씩 읽기 (POSIX 호환)
     while IFS= read -r line || [ -n "$line" ]; do
@@ -324,9 +342,6 @@ process_env_file() {
 
                 secrets_count=$((secrets_count + 1))
 
-                # 저장 타입 결정
-                local storage_type=$(determine_storage_type "$key")
-                
                 if [ "$storage_type" = "variable" ]; then
                     log_info "변수 업로드 중: $key"
                 else
@@ -334,7 +349,7 @@ process_env_file() {
                 fi
 
                 # GitHub 환경변수 업로드
-                if upload_env_var "$key" "$value" "$secret_type" "$storage_type"; then
+                if upload_env_var "$key" "$value" "$type_info"; then
                     if [ "$storage_type" = "variable" ]; then
                         log_success "변수 업로드 완료: $key"
                     else
@@ -386,18 +401,21 @@ main() {
 
     # 각 .env 파일별 환경변수 처리
     for env_file in $ENV_FILES; do
-        secret_type=$(determine_secret_type "$env_file")
-
-        # .env.org 파일이지만 개인 계정인 경우 건너뛰기
-        if [ "$env_file" = ".env.org" ] && [ "$ACCOUNT_TYPE" != "Organization" ]; then
+        type_info=$(determine_secret_type "$env_file")
+        
+        # 타입 정보에서 조직 관련 체크
+        local secret_type=$(echo "$type_info" | cut -d: -f1)
+        
+        # .env.org 관련 파일이지만 개인 계정인 경우 건너뛰기
+        if [ "$secret_type" = "org" ] && [ "$ACCOUNT_TYPE" != "Organization" ]; then
             echo ""
-            log_warning ".env.org 파일이 감지되었지만 현재 계정은 개인 계정입니다"
-            log_warning "조직 시크릿은 조직 계정에서만 설정할 수 있어 건너뜁니다"
+            log_warning "$env_file 파일이 감지되었지만 현재 계정은 개인 계정입니다"
+            log_warning "조직 시크릿/변수는 조직 계정에서만 설정할 수 있어 건너뜁니다"
             continue
         fi
 
         echo ""
-        process_env_file "$env_file" "$secret_type"
+        process_env_file "$env_file" "$type_info"
     done
 
     echo ""
