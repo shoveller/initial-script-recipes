@@ -405,6 +405,21 @@ create_scripts_and_docs() {
     echo -e "${GREEN}스크립트 파일들에 실행 권한을 부여했습니다.${NC}"
 }
 
+# Pure function to setup notify-telegram workflows
+setup_notify_telegram_workflows() {
+    echo -e "${GREEN}Notify-Telegram 워크플로우를 설정합니다...${NC}"
+    
+    local notify_templates_dir="$SCRIPT_DIR/templates/notify-telegram"
+    
+    if [[ -d "$notify_templates_dir" && -n "$(ls -A "$notify_templates_dir" 2>/dev/null)" ]]; then
+        echo -e "${GREEN}Notify-Telegram 워크플로우 파일들을 복사합니다...${NC}"
+        cp -r "$notify_templates_dir"/* .github/workflows/
+        echo -e "${GREEN}Notify-Telegram 워크플로우 파일들이 복사되었습니다.${NC}"
+    else
+        echo -e "${YELLOW}Notify-Telegram 템플릿 디렉토리가 비어있거나 없습니다. 건너뜁니다.${NC}"
+    fi
+}
+
 
 
 # Pure function to setup React Router web app
@@ -594,6 +609,7 @@ main() {
     setup_typescript
     setup_vscode_workspace
     setup_semantic_release "$pnpm_version"
+    setup_notify_telegram_workflows
     setup_package_json_private "$pnpm_version"
     setup_turborepo
     setup_husky

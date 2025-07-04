@@ -1,0 +1,90 @@
+name: Notify Telegram
+
+on:
+  workflow_call:
+    inputs:
+      deployment_result:
+        description: 'Deployment job result (success, failure, cancelled, skipped)'
+        required: true
+        type: string
+      message:
+        description: 'Custom message to include in notification'
+        required: false
+        type: string
+    secrets:
+      TELEGRAM_TOKEN:
+        required: true
+      TELEGRAM_CHAT_ID:
+        required: true
+  workflow_dispatch:
+    inputs:
+      deployment_result:
+        description: 'Deployment job result'
+        required: true
+        type: choice
+        options:
+          - success    # 잡이 성공적으로 완료
+          - failure    # 잡이 실패
+          - cancelled  # 잡이 취소됨
+          - skipped    # 잡이 건너뜀
+      message:
+        description: 'Custom message to include in notification'
+        required: false
+        type: string
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    if: always()
+    environment: ${{ github.ref_name }}
+    steps:
+      - name: 배포 성공 알림
+        if: inputs.deployment_result == 'success'
+        uses: cbrgm/telegram-github-action@v1
+        with:
+          token: ${{ secrets.TELEGRAM_TOKEN }}
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          parse-mode: markdown
+          message: |
+            ✅ *배포 성공*
+            브랜치: `${{ github.ref_name }}`
+            ${{ inputs.message || '' }}
+
+      - name: 배포 실패 알림
+        if: inputs.deployment_result == 'failure'
+        uses: cbrgm/telegram-github-action@v1
+        with:
+          token: ${{ secrets.TELEGRAM_TOKEN }}
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          parse-mode: markdown
+          message: |
+            ❌ *배포 실패*
+            브랜치: `${{ github.ref_name }}`
+            ${{ inputs.message || '' }}
+            [작업 링크](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+      - name: 배포 취소 알림
+        if: inputs.deployment_result == 'cancelled'
+        uses: cbrgm/telegram-github-action@v1
+        with:
+          token: ${{ secrets.TELEGRAM_TOKEN }}
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          parse-mode: markdown
+          message: |
+            ⏸️ *배포 취소*
+            브랜치: `${{ github.ref_name }}`
+            ${{ inputs.message || '' }}
+            [작업 링크](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+      - name: 배포 건너뜀 알림
+        if: inputs.deployment_result == 'skipped'
+        uses: cbrgm/telegram-github-action@v1
+        with:
+          token: ${{ secrets.TELEGRAM_TOKEN }}
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          parse-mode: markdown
+          message: |
+            ⏭️ *배포 건너뜀*
+            브랜치: `${{ github.ref_name }}`
+            ${{ inputs.message || '' }}
+            [작업 링크](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})

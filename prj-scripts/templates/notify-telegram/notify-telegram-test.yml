@@ -1,0 +1,64 @@
+name: Test Deploy & Notify
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_result:
+        description: 'Deployment result to simulate'
+        required: true
+        default: 'success'
+        type: choice
+        options:
+          - success    # 잡이 성공적으로 완료
+          - failure    # 잡이 실패
+          - cancelled  # 잡이 취소됨
+          - skipped    # 잡이 건너뜀
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mock deployment
+        run: |
+          RESULT="${{ inputs.deployment_result }}"
+          echo "Mock deployment starting with result: $RESULT"
+          sleep 2
+          
+          # 선택된 결과에 따라 처리
+          case "$RESULT" in
+            success)
+              echo "Mock deployment completed successfully!"
+              echo "result=success" >> $GITHUB_OUTPUT
+              ;;
+            failure)
+              echo "Mock deployment failed!"
+              echo "result=failure" >> $GITHUB_OUTPUT
+              exit 1
+              ;;
+            cancelled)
+              echo "Mock deployment was cancelled!"
+              echo "result=cancelled" >> $GITHUB_OUTPUT
+              exit 1
+              ;;
+            skipped)
+              echo "Mock deployment was skipped!"
+              echo "result=skipped" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "Unknown result: $RESULT"
+              echo "result=failure" >> $GITHUB_OUTPUT
+              exit 1
+              ;;
+          esac
+
+      - name: Set deployment output
+        run: |
+          echo "deployment_url=https://test.example.com" >> $GITHUB_OUTPUT
+
+  notify:
+    needs: deploy
+    if: always()
+    uses: ./.github/workflows/notify-telegram.yml
+    with:
+      deployment_result: ${{ needs.deploy.result }}
+      message: ${{ needs.deploy.result == 'success' && '🚀 테스트 배포 성공!' || '❌ 테스트 배포 실패' }}
