@@ -197,6 +197,9 @@ EOF
     echo -e "${GREEN}pre-push 훅을 설정합니다...${NC}"
     copy_template "husky/pre-push" ".husky/pre-push"
     chmod +x .husky/pre-push
+
+    echo -e "${GREEN}pre-push 훅 설명서를 복사합니다...${NC}"
+    copy_template "husky/pre-push.md" ".husky/pre-push.md"
 }
 
 # Pure function to create workspace structure with complete turbo config
