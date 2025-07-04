@@ -129,7 +129,20 @@ setup_semantic_release() {
     echo -e "${GREEN}GitHub Actions workflow 디렉토리를 생성합니다...${NC}"
     mkdir -p .github/workflows
 
-    copy_template "semantic-release/semantic-release.yml" ".github/workflows/semantic-release.yml" "$pnpm_version"
+    # Get Node.js version dynamically
+    local node_version
+    node_version=$(node -v 2>/dev/null | grep -o '[0-9]\+' | head -1)
+    
+    if [[ -z "$node_version" ]]; then
+        echo -e "${RED}Node.js 버전을 확인할 수 없습니다.${NC}" >&2
+        exit 1
+    fi
+    
+    echo -e "${GREEN}Node.js 버전 $node_version을 감지했습니다.${NC}"
+
+    copy_template_with_vars "semantic-release/semantic-release.yml" ".github/workflows/semantic-release.yml" \
+        "pnpm_version" "$pnpm_version" \
+        "node_version" "$node_version"
 }
 
 
