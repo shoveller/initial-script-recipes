@@ -644,10 +644,6 @@ create_scripts_and_docs() {
     copy_template "aws-infra/package.json" "packages/scripts/aws-infra/package.json"
     
     echo -e "${GREEN}AWS 인프라 템플릿 파일들이 다운로드되었습니다.${NC}"
-
-    # Grant execution permissions
-    chmod +x packages/scripts/set-aws-infra.sh
-    echo -e "${GREEN}스크립트 파일들에 실행 권한을 부여했습니다.${NC}"
 }
 
 # Pure function to setup telegram workflows
