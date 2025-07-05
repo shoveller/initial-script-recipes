@@ -628,22 +628,6 @@ create_scripts_and_docs() {
 
     echo -e "${GREEN}HOW_TO_GET_TOKENS.md 문서를 생성합니다...${NC}"
     copy_template "scripts/HOW_TO_GET_TOKENS.md" "packages/scripts/HOW_TO_GET_TOKENS.md"
-
-    echo -e "${GREEN}AWS 인프라 템플릿 디렉토리를 생성합니다...${NC}"
-    mkdir -p packages/scripts/aws-infra
-
-    echo -e "${GREEN}AWS 인프라 템플릿 파일들을 다운로드합니다...${NC}"
-    
-    # Download each aws-infra template file to packages/scripts/aws-infra/
-    copy_template "aws-infra/cdk.ts" "packages/scripts/aws-infra/cdk.ts"
-    copy_template "aws-infra/cdk.json" "packages/scripts/aws-infra/cdk.json"
-    copy_template "aws-infra/cdk-stack.ts" "packages/scripts/aws-infra/cdk-stack.ts"
-    copy_template "aws-infra/delete-dns.ts" "packages/scripts/aws-infra/delete-dns.ts"
-    copy_template "aws-infra/infrastructure-readme.md" "packages/scripts/aws-infra/infrastructure-readme.md"
-    copy_template "aws-infra/lambda.ts" "packages/scripts/aws-infra/lambda.ts"
-    copy_template "aws-infra/package.json" "packages/scripts/aws-infra/package.json"
-    
-    echo -e "${GREEN}AWS 인프라 템플릿 파일들이 다운로드되었습니다.${NC}"
 }
 
 # Pure function to setup telegram workflows
