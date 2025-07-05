@@ -1,0 +1,16 @@
+{
+  "name": "$package_scope/aws-infra",
+  "version": "1.0.0",
+  "description": "AWS infrastructure package using CDK",
+  "main": "cdk.js",
+  "scripts": {
+    "bootstrap": "cdk bootstrap && cdk deploy --timeout 20 --require-approval never --concurrency 10",
+    "deploy": "cdk deploy --hotswap --require-approval never --concurrency 10 --quiet",
+    "destroy": "node delete-dns.ts && npx cdk destroy --force"
+  },
+  "keywords": ["aws", "cdk", "infrastructure"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {},
+  "devDependencies": {}
+}

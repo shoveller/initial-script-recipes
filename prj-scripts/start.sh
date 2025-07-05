@@ -175,34 +175,29 @@ setup_aws_infra_package() {
     mkdir -p packages/aws-infra
     cd packages/aws-infra
     
-    pnpm init
-    
-    # Update package.json for infra package
-    if command -v jq &> /dev/null; then
-        jq --arg scope "$package_scope" '. + {"name": ($scope + "/aws-infra"), "scripts": {"bootstrap": "cdk bootstrap && cdk deploy --timeout 20 --require-approval never --concurrency 10", "deploy": "cdk deploy --hotswap --require-approval never --concurrency 10 --quiet", "destroy": "node delete-dns.ts && npx cdk destroy --force"}}' package.json > package.json.tmp && mv package.json.tmp package.json
-    else
-        # Fallback: Use Node.js for safe JSON manipulation
-        node -e "
-        const fs = require('fs');
-        const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-        pkg.name = \"$package_scope/aws-infra\";
-        pkg.scripts = {
-            'bootstrap': 'cdk bootstrap && cdk deploy --timeout 20 --require-approval never --concurrency 10',
-            'deploy': 'cdk deploy --hotswap --require-approval never --concurrency 10 --quiet',
-            'destroy': 'node delete-dns.ts && npx cdk destroy --force'
-        };
-        fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-        "
-    fi
+    echo -e "${GREEN}package.json 템플릿을 복사합니다...${NC}"
+    copy_template_with_vars "aws-infra/package.json" "package.json" \
+        "package_scope" "$package_scope"
     
     echo -e "${GREEN}AWS CDK 의존성을 설치합니다...${NC}"
     pnpm i @react-router/architect aws-cdk aws-cdk-lib constructs esbuild tsx dotenv dotenv-cli
     
     echo -e "${GREEN}인프라 템플릿 파일들을 복사합니다...${NC}"
-    local infra_templates_dir="$SCRIPT_DIR/templates/infra"
+    local aws_infra_templates_dir="$SCRIPT_DIR/templates/aws-infra"
     
     if [[ -d "$aws_infra_templates_dir" && -n "$(ls -A "$aws_infra_templates_dir" 2>/dev/null)" ]]; then
-        cp -r "$aws_infra_templates_dir"/* .
+        # Copy all files except package.json (already copied above)
+        for file in "$aws_infra_templates_dir"/*; do
+            if [[ "$(basename "$file")" != "package.json" ]]; then
+                if [[ "$(basename "$file")" == "lambda.ts" ]]; then
+                    # Use copy_template_with_vars for lambda.ts to handle package_scope substitution
+                    copy_template_with_vars "aws-infra/lambda.ts" "lambda.ts" \
+                        "package_scope" "$package_scope"
+                else
+                    cp "$file" .
+                fi
+            fi
+        done
         echo -e "${GREEN}AWS 인프라 템플릿 파일들이 복사되었습니다.${NC}"
     else
         echo -e "${YELLOW}AWS 인프라 템플릿 디렉토리가 비어있거나 없습니다. 건너뜁니다.${NC}"
