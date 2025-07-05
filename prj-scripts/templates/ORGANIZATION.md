@@ -24,7 +24,7 @@ Templates are now organized into namespace directories based on their function c
   - `destroy.ts` - Stack destruction script
   - `infrastructure-readme.md` - Infrastructure documentation
   - `lambda.ts` - Lambda function template
-  - `update_dns.ts` - DNS management script
+  - `delete-dns.ts` - DNS record deletion script
 
 - **prettier/** - Prettier package templates
   - `prettier-index.mjs` - Prettier package main file

@@ -38,10 +38,10 @@ function getRequiredEnv(key: string): string {
 
 /**
  * 환경변수에서 DNS 설정을 구성하는 순수함수
- * DOMAIN이 없으면 null을 반환하여 DNS 업데이트를 건너뛸 수 있도록 함
+ * DOMAIN이 없으면 null을 반환하여 DNS 삭제를 건너뛸 수 있도록 함
  */
 function createDNSConfig(): DNSConfig | null {
-  // DOMAIN이 없으면 DNS 업데이트를 하지 않음
+  // DOMAIN이 없으면 DNS 삭제를 하지 않음
   const domain = process.env.DOMAIN
 
   if (!domain) {
@@ -104,40 +104,16 @@ function getFullDomain(domain: string, subdomain?: string): string {
 }
 
 /**
- * DNS 레코드 객체를 생성하는 순수함수
- */
-function createDNSRecord(dnsConfig: DNSConfig): CloudflareRecord {
-  return {
-    type: dnsConfig.recordType,
-    name: getFullDomain(dnsConfig.domain, dnsConfig.subdomain),
-    content: dnsConfig.recordValue,
-    ttl: dnsConfig.ttl
-  }
-}
-
-/**
  * Wrangler CLI 명령어를 생성하는 순수함수
  */
 function createWranglerCommand(
-    action: 'create' | 'update' | 'list' | 'delete',
+    action: 'list' | 'delete',
     domain: string,
     record?: CloudflareRecord,
     recordId?: string
 ): string {
   if (action === 'list') {
     return `wrangler dns list --zone ${domain} --type ${record?.type || 'A'}`
-  }
-
-  if (action === 'create') {
-    if (!record) throw new Error('레코드 정보가 필요합니다')
-
-    return `wrangler dns create ${domain} "${record.name}" ${record.type} "${record.content}" --ttl ${record.ttl}`
-  }
-
-  if (action === 'update') {
-    if (!record || !recordId) throw new Error('레코드 정보와 ID가 필요합니다')
-
-    return `wrangler dns update ${domain} ${recordId} --type ${record.type} --content "${record.content}" --ttl ${record.ttl}`
   }
 
   if (action === 'delete') {
@@ -182,79 +158,53 @@ function parseWranglerOutput(
 }
 
 /**
- * 로그 메시지를 생성하는 순수함수
+ * Cloudflare DNS 레코드 삭제 클래스
  */
-function createLogMessages(dnsConfig: DNSConfig) {
-  const fullDomain = getFullDomain(dnsConfig.domain, dnsConfig.subdomain)
-
-  return {
-    config: [
-      '🔧 DNS 업데이트 설정:',
-      `   도메인: ${fullDomain}`,
-      `   레코드 타입: ${dnsConfig.recordType}`,
-      `   대상: ${dnsConfig.recordValue}`,
-      `   TTL: ${dnsConfig.ttl}초`
-    ].join('\n'),
-    wranglerStart: '🌐 Wrangler CLI를 사용하여 DNS 레코드 업데이트 중...',
-    recordFound: '📝 기존 DNS 레코드 발견, 업데이트 중...',
-    recordCreate: '➕ 새 DNS 레코드 생성 중...',
-    recordNotFound: '🔍 기존 레코드 없음, 새로 생성합니다.',
-    success: '✅ DNS 레코드 업데이트 완료!',
-    complete: '🎉 DNS 업데이트가 완료되었습니다!'
-  }
-}
-
-/**
- * Cloudflare DNS 레코드를 업데이트하는 클래스
- */
-export class CloudflareDNSUpdater {
+export class CloudflareDNSDeleter {
   private readonly dnsConfig: DNSConfig
-  private readonly messages: ReturnType<typeof createLogMessages>
 
   constructor(dnsConfig?: DNSConfig) {
     const _config = dnsConfig || createDNSConfig()
 
     if (!_config) {
       throw new Error(
-          '❌ DOMAIN 환경변수가 설정되지 않아 DNS 업데이트를 건너뜁니다.'
+          '❌ DOMAIN 환경변수가 설정되지 않아 DNS 삭제를 건너뜁니다.'
       )
     }
 
     this.dnsConfig = _config
-    this.messages = createLogMessages(this.dnsConfig)
 
-    console.log(this.messages.config)
+    const fullDomain = getFullDomain(this.dnsConfig.domain, this.dnsConfig.subdomain)
+    console.log('🔧 DNS 삭제 설정:')
+    console.log(`   도메인: ${fullDomain}`)
+    console.log(`   레코드 타입: ${this.dnsConfig.recordType}`)
   }
 
   /**
-   * Wrangler CLI를 사용하여 DNS 레코드 업데이트
+   * Wrangler CLI를 사용하여 DNS 레코드 삭제
    */
-  async updateDNSWithWrangler(): Promise<void> {
+  async deleteDNSWithWrangler(): Promise<void> {
     try {
-      console.log(this.messages.wranglerStart)
+      console.log('🗑️ Wrangler CLI를 사용하여 DNS 레코드 삭제 중...')
 
       // Wrangler 설치 확인
       this.checkWranglerInstallation()
 
       // 현재 DNS 레코드 조회
       const existingRecord = await this.findExistingRecordWithWrangler()
-      const record = createDNSRecord(this.dnsConfig)
 
       if (!existingRecord) {
-        console.log(this.messages.recordCreate)
-        await this.executeWranglerCreate(record)
-
-        console.log(this.messages.success)
+        console.log('ℹ️ 삭제할 DNS 레코드가 없습니다.')
 
         return
       }
 
-      console.log(this.messages.recordFound)
-      await this.executeWranglerUpdate(existingRecord.id!, record)
+      console.log(`🗑️ DNS 레코드 삭제 중... (ID: ${existingRecord.id})`)
+      await this.executeWranglerDelete(existingRecord.id!)
 
-      console.log(this.messages.success)
+      console.log('✅ DNS 레코드 삭제 완료!')
     } catch (error) {
-      console.error('❌ DNS 업데이트 실패:', error)
+      console.error('❌ DNS 레코드 삭제 실패:', error)
       throw error
     }
   }
@@ -297,74 +247,9 @@ export class CloudflareDNSUpdater {
           this.dnsConfig
       )
     } catch {
-      console.log(this.messages.recordNotFound)
+      console.log('🔍 기존 레코드 없음.')
 
       return null
-    }
-  }
-
-  /**
-   * DNS 레코드 생성 (Wrangler CLI 사용)
-   */
-  private async executeWranglerCreate(record: CloudflareRecord): Promise<void> {
-    const command = createWranglerCommand(
-        'create',
-        this.dnsConfig.domain,
-        record
-    )
-
-    execSync(command, {
-      stdio: 'inherit',
-      env: { ...process.env, CLOUDFLARE_API_TOKEN: this.dnsConfig.apiToken }
-    })
-  }
-
-  /**
-   * DNS 레코드 업데이트 (Wrangler CLI 사용)
-   */
-  private async executeWranglerUpdate(
-      recordId: string,
-      record: CloudflareRecord
-  ): Promise<void> {
-    const command = createWranglerCommand(
-        'update',
-        this.dnsConfig.domain,
-        record,
-        recordId
-    )
-
-    execSync(command, {
-      stdio: 'inherit',
-      env: { ...process.env, CLOUDFLARE_API_TOKEN: this.dnsConfig.apiToken }
-    })
-  }
-
-  /**
-   * Wrangler CLI를 사용하여 DNS 레코드 삭제
-   */
-  async deleteDNSWithWrangler(): Promise<void> {
-    try {
-      console.log('🗑️ Wrangler CLI를 사용하여 DNS 레코드 삭제 중...')
-
-      // Wrangler 설치 확인
-      this.checkWranglerInstallation()
-
-      // 현재 DNS 레코드 조회
-      const existingRecord = await this.findExistingRecordWithWrangler()
-
-      if (!existingRecord) {
-        console.log('ℹ️ 삭제할 DNS 레코드가 없습니다.')
-
-        return
-      }
-
-      console.log(`🗑️ DNS 레코드 삭제 중... (ID: ${existingRecord.id})`)
-      await this.executeWranglerDelete(existingRecord.id!)
-
-      console.log('✅ DNS 레코드 삭제 완료!')
-    } catch (error) {
-      console.error('❌ DNS 레코드 삭제 실패:', error)
-      throw error
     }
   }
 
@@ -387,22 +272,13 @@ export class CloudflareDNSUpdater {
 }
 
 /**
- * DNS 업데이트 실행 함수 (Wrangler CLI만 사용)
- * @param dnsConfig 선택적 DNS 설정 (없으면 환경변수에서 자동 생성)
- */
-export async function updateDNS(dnsConfig?: DNSConfig): Promise<void> {
-  const updater = new CloudflareDNSUpdater(dnsConfig)
-  await updater.updateDNSWithWrangler()
-}
-
-/**
  * DNS 삭제 실행 함수 (Wrangler CLI만 사용)
  * @param dnsConfig 선택적 DNS 설정 (없으면 환경변수에서 자동 생성)
  */
 export async function deleteDNS(dnsConfig?: DNSConfig): Promise<void> {
   try {
-    const updater = new CloudflareDNSUpdater(dnsConfig)
-    await updater.deleteDNSWithWrangler()
+    const deleter = new CloudflareDNSDeleter(dnsConfig)
+    await deleter.deleteDNSWithWrangler()
   } catch (error) {
     if (error instanceof Error && error.message.includes('DOMAIN 환경변수가 설정되지 않아')) {
       console.log('ℹ️ DOMAIN 환경변수가 설정되지 않아 DNS 삭제를 건너뜁니다.')
@@ -420,23 +296,21 @@ async function runMain(): Promise<void> {
   try {
     const dnsConfig = createDNSConfig()
 
-    // DOMAIN이 없으면 DNS 업데이트를 건너뜀
+    // DOMAIN이 없으면 DNS 삭제를 건너뜀
     if (!dnsConfig) {
       console.log(
-          'ℹ️ DOMAIN 환경변수가 설정되지 않아 DNS 업데이트를 건너뜁니다.'
+          'ℹ️ DOMAIN 환경변수가 설정되지 않아 DNS 삭제를 건너뜁니다.'
       )
 
       return
     }
 
-    const messages = createLogMessages(dnsConfig)
+    console.log('🔧 Wrangler CLI 모드로 DNS 삭제 실행...')
+    await deleteDNS(dnsConfig)
 
-    console.log('🔧 Wrangler CLI 모드로 실행...')
-    await updateDNS(dnsConfig)
-
-    console.log(messages.complete)
+    console.log('🎉 DNS 삭제가 완료되었습니다!')
   } catch (error) {
-    console.error('❌ DNS 업데이트 실패:', error)
+    console.error('❌ DNS 삭제 실패:', error)
     process.exit(1)
   }
 }

@@ -3,8 +3,8 @@ import * as cdk from 'aws-cdk-lib'
 import { CdkStack } from './cdk-stack'
 import * as path from 'path'
 import { execSync } from 'child_process'
-import { writeFileSync, readFileSync } from 'fs'
-import { updateDNS, deleteDNS } from './update_dns'
+import { readFileSync } from 'fs'
+import { deleteDNS } from './delete-dns'
 
 /**
  * 프로젝트 루트의 package.json에서 프로젝트 이름을 가져오는 순수함수
@@ -28,63 +28,13 @@ const staticAssetPath = path.join(
   '../../apps/web/build/client/assets'
 )
 
-type EnvUpdateResult = {
-  lines: string[]
-  updated: boolean
-}
+
+
+
+
 
 /**
- * .env 파일 경로를 생성하는 순수함수
- */
-function createEnvPath(): string {
-  return path.join(__dirname, '../../.env')
-}
-
-/**
- * 환경변수 라인을 업데이트하는 순수함수
- */
-function updateEnvLines(lines: string[], lambdaUrl: string): EnvUpdateResult {
-  return lines.reduce<EnvUpdateResult>(
-    (acc, line) => {
-      if (line.startsWith('RECORD_VALUE=')) {
-        return {
-          lines: [...acc.lines, `RECORD_VALUE=${lambdaUrl}`],
-          updated: true
-        }
-      }
-
-      return {
-        lines: [...acc.lines, line],
-        updated: acc.updated
-      }
-    },
-    { lines: [], updated: false }
-  )
-}
-
-/**
- * 새로운 환경변수 라인을 추가하는 순수함수
- */
-function addEnvLine(lines: string[], lambdaUrl: string): string[] {
-  return [...lines, `RECORD_VALUE=${lambdaUrl}`]
-}
-
-/**
- * 로그 메시지를 생성하는 순수함수
- */
-function createEnvLogMessages(lambdaUrl: string) {
-  return {
-    success: `✅ .env 파일의 RECORD_VALUE가 업데이트되었습니다: ${lambdaUrl}`,
-    dnsStart: '\n🌐 Cloudflare DNS 업데이트를 시작합니다...',
-    dnsSkip: 'ℹ️ DOMAIN이 설정되지 않아 DNS 업데이트를 건너뜁니다.',
-    error: '❌ .env 파일 또는 DNS 업데이트 실패:',
-    manual: '\n💡 DNS 업데이트가 실패했습니다. 수동으로 실행해주세요:',
-    command: '   cd packages/infra && pnpm update-dns'
-  }
-}
-
-/**
- * DNS 업데이트 에러를 확인하는 순수함수
+ * DNS 삭제 에러를 확인하는 순수함수
  */
 function isDomainMissingError(error: unknown): boolean {
   return (
@@ -93,33 +43,7 @@ function isDomainMissingError(error: unknown): boolean {
   )
 }
 
-/**
- * DNS 업데이트를 처리하는 순수함수
- */
-async function processDNSUpdate(): Promise<void> {
-  await updateDNS() // Wrangler CLI 사용
-}
 
-/**
- * DNS 업데이트를 실행하는 함수
- */
-async function executeDNSUpdate(
-  messages: ReturnType<typeof createEnvLogMessages>
-): Promise<void> {
-  console.log(messages.dnsStart)
-
-  try {
-    await processDNSUpdate()
-  } catch (error) {
-    if (isDomainMissingError(error)) {
-      console.log(messages.dnsSkip)
-
-      return
-    }
-
-    throw error
-  }
-}
 
 /**
  * DNS 삭제를 처리하는 순수함수
@@ -149,45 +73,7 @@ async function executeDNSDelete(): Promise<void> {
   }
 }
 
-const getUpdatedFinalLines = ({
-  lambdaUrl,
-  envPath
-}: {
-  lambdaUrl: string
-  envPath: string
-}) => {
-  const envContent = readFileSync(envPath, 'utf-8')
-  const lines = envContent.split('\n')
-  const updatedResult = updateEnvLines(lines, lambdaUrl)
 
-  if (updatedResult.updated) {
-    return updatedResult.lines
-  }
-
-  return addEnvLine(updatedResult.lines, lambdaUrl)
-}
-
-/**
- * .env 파일의 RECORD_VALUE를 업데이트하고 DNS를 업데이트하는 함수
- */
-async function updateEnvRecordValueAndDNS(lambdaUrl: string): Promise<void> {
-  const envPath = createEnvPath()
-  const messages = createEnvLogMessages(lambdaUrl)
-
-  try {
-    // 1. .env 파일 업데이트
-    const finalLines = getUpdatedFinalLines({ envPath, lambdaUrl })
-    writeFileSync(envPath, finalLines.join('\n'))
-    console.log(messages.success)
-
-    // 2. DNS 업데이트 실행
-    await executeDNSUpdate(messages)
-  } catch (error) {
-    console.error(messages.error, error)
-    console.log(messages.manual)
-    console.log(messages.command)
-  }
-}
 
 /**
  * DNS 삭제를 포함한 완전한 스택 삭제 함수
@@ -232,5 +118,4 @@ new CdkStack(app, `${projectName}-${branchName}`, {
     Environment: environment,
     Project: projectName
   },
-  onDeploySuccess: updateEnvRecordValueAndDNS
 })
