@@ -1,6 +1,5 @@
 # pre-push 스크립트 주요 기능
 
-- `.env` 파일들을 자동으로 GitHub 시크릿/변수로 업로드
 - `.env` → Repository secrets (예: `API_KEY=secret123`)
 - `.env.var` → Repository variables (예: `BASE_URL=https://api.com`)
 - `.env.{environment}` → Environment secrets (예: `.env.staging`)

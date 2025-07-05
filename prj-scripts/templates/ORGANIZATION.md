@@ -12,7 +12,7 @@ Templates are now organized into namespace directories based on their function c
   - `prettier.config.mjs` - Root Prettier configuration
 
 - **env/** - Environment configuration
-  - `.env.template` - Environment variables template
+  - `.env` - Environment variables template
 
 - **eslint/** - ESLint package templates
   - `eslint-index.mjs` - ESLint package main file

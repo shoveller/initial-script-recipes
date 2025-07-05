@@ -581,9 +581,11 @@ create_env_template() {
         fi
     fi
     
-    copy_template "env/.env.template" ".env"
-    
+    copy_template "env/.env" ".env"
     echo -e "${GREEN}.env 파일이 생성되었습니다.${NC}"
+
+    copy_template "env/.env.var" ".env.var"
+    echo -e "${GREEN}.env.var 파일이 생성되었습니다.${NC}"
 }
 
 # Pure function to update .gitignore with .env if not present
