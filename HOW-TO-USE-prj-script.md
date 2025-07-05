@@ -1,4 +1,4 @@
-# prj-scripts/start.sh
+# prj.sh
 > 웹 프론트엔드 프로젝트 스케폴드 자동화 스크립트(osx 전용)
 
 ## 실행 흐름
@@ -78,7 +78,7 @@ git clone https://github.com/shoveller/initial-script-recipes.git
 mkdir -p prj-scripts
 
 # 메인 스크립트 다운로드
-curl -L -o prj-scripts/start.sh https://github.com/shoveller/initial-script-recipes/raw/main/prj-scripts/start.sh
+curl -L -o prj.sh https://github.com/shoveller/initial-script-recipes/raw/main/prj.sh
 
 # 템플릿 복사 헬퍼 스크립트 다운로드
 curl -L -o prj-scripts/copy-template.sh https://github.com/shoveller/initial-script-recipes/raw/main/prj-scripts/copy-template.sh
@@ -90,16 +90,16 @@ mkdir -p prj-scripts/templates
 
 ## 실행권한 부여
 ```shell
-chmod +x initial-script-recipes/prj-scripts/start.sh
+chmod +x initial-script-recipes/prj.sh
 ```
 
 ## 웹 프론트엔드 프로젝트 스케폴드 개시
 ```shell
-./initial-script-recipes/prj-scripts/start.sh
+./initial-script-recipes/prj.sh
 ```
 
 ## 주요 변경사항
-- **단일 스크립트**: 이제 `prj-scripts/start.sh` 하나만 실행하면 전체 스캐폴딩이 완료됩니다
+- **단일 스크립트**: 이제 `prj.sh` 하나만 실행하면 전체 스캐폴딩이 완료됩니다
 - **템플릿 기반**: 하드코딩된 내용들이 `prj-scripts/` 디렉토리의 템플릿 파일들로 분리되었습니다
 - **React Router**: Vite + React 대신 React Router를 사용하여 웹 애플리케이션을 생성합니다
 - **통합된 워크플로우**: 기존 `prj.sh`와 `prj-scripts/prj.sh`의 기능이 하나로 통합되었습니다

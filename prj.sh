@@ -12,64 +12,180 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Function to copy template with variable substitution
+# GitHub repository configuration
+GITHUB_REPO_URL="https://raw.githubusercontent.com/shoveller/initial-script-recipes"
+GITHUB_BRANCH="main"
+TEMPLATE_CACHE_DIR="$HOME/.prj-templates"
+
+# Create cache directory if it doesn't exist
+mkdir -p "$TEMPLATE_CACHE_DIR"
+
+# Function to check internet connectivity
+check_internet_connection() {
+    if command -v curl &> /dev/null; then
+        curl -s --connect-timeout 5 --max-time 10 "$GITHUB_REPO_URL/$GITHUB_BRANCH/README.md" > /dev/null 2>&1
+        return $?
+    else
+        echo -e "${RED}curl이 설치되어 있지 않습니다. curl을 설치해주세요.${NC}" >&2
+        return 1
+    fi
+}
+
+# Function to clear template cache
+clear_template_cache() {
+    echo -e "${YELLOW}템플릿 캐시를 정리합니다...${NC}"
+    rm -rf "$TEMPLATE_CACHE_DIR"
+    mkdir -p "$TEMPLATE_CACHE_DIR"
+}
+
+# Function to download a single template file from GitHub
+download_template_file() {
+    local template_file=$1
+    local target_file=$2
+    local github_url="$GITHUB_REPO_URL/$GITHUB_BRANCH/prj-scripts/$template_file"
+    local cache_file="$TEMPLATE_CACHE_DIR/$template_file"
+    
+    # Create cache directory structure if needed
+    local cache_dir
+    cache_dir=$(dirname "$cache_file")
+    mkdir -p "$cache_dir"
+    
+    echo -e "${BLUE}템플릿 다운로드 중: $template_file${NC}"
+    
+    if curl -s -f -o "$cache_file" "$github_url"; then
+        echo -e "${GREEN}$target_file 파일을 생성합니다...${NC}"
+        cp "$cache_file" "$target_file"
+        return 0
+    else
+        echo -e "${RED}템플릿 다운로드 실패: $template_file${NC}" >&2
+        return 1
+    fi
+}
+
+# Function to download template file with variable substitution
+download_template_with_vars() {
+    local template_file=$1
+    local target_file=$2
+    shift 2
+    
+    local github_url="$GITHUB_REPO_URL/$GITHUB_BRANCH/prj-scripts/$template_file"
+    local cache_file="$TEMPLATE_CACHE_DIR/$template_file"
+    
+    # Create cache directory structure if needed
+    local cache_dir
+    cache_dir=$(dirname "$cache_file")
+    mkdir -p "$cache_dir"
+    
+    echo -e "${BLUE}템플릿 다운로드 중: $template_file${NC}"
+    
+    if curl -s -f -o "$cache_file" "$github_url"; then
+        echo -e "${GREEN}$target_file 파일을 생성합니다...${NC}"
+        
+        # Start with the template content
+        local temp_content
+        temp_content=$(cat "$cache_file")
+        
+        # Apply each variable substitution
+        while [[ $# -gt 0 ]]; do
+            local var_name=$1
+            local var_value=$2
+            shift 2
+            
+            # Use sed to replace the variable placeholder
+            temp_content=$(echo "$temp_content" | sed "s/\$$var_name/$var_value/g")
+        done
+        
+        # Write the final content to the target file
+        echo "$temp_content" > "$target_file"
+        return 0
+    else
+        echo -e "${RED}템플릿 다운로드 실패: $template_file${NC}" >&2
+        return 1
+    fi
+}
+
+# Function to get template with variable substitution (GitHub-based)
 copy_template() {
     local template_file=$1
     local target_file=$2
     local substitution_value=${3:-""}
     
+    # Try GitHub download first, fallback to local if offline
+    if check_internet_connection; then
+        if [[ -n "$substitution_value" ]]; then
+            # Use download function with variable substitution
+            if download_template_with_vars "$template_file" "$target_file" "pnpm_version" "$substitution_value" "package_scope" "$substitution_value" "PACKAGE_SCOPE" "$substitution_value"; then
+                return 0
+            fi
+        else
+            # Use simple download function
+            if download_template_file "$template_file" "$target_file"; then
+                return 0
+            fi
+        fi
+    fi
+    
+    # Fallback to local template if GitHub download fails
+    echo -e "${YELLOW}GitHub 다운로드 실패, 로컬 템플릿 사용을 시도합니다...${NC}"
     local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     local template_path="$script_dir/prj-scripts/$template_file"
     
-    if [[ ! -f "$template_path" ]]; then
-        echo -e "${RED}템플릿 파일을 찾을 수 없습니다: $template_path${NC}" >&2
-        exit 1
-    fi
-    
-    echo -e "${GREEN}$target_file 파일을 생성합니다...${NC}"
-    
-    if [[ -n "$substitution_value" ]]; then
-        # Replace both pnpm version and package scope placeholders with the provided value
-        # This allows flexibility - pass pnpm version for pnpm placeholders, package scope for package scope placeholders
-        # Also handle {{PACKAGE_SCOPE}} format for turbo.json and similar templates
-        sed -e "s/\$pnpm_version/$substitution_value/g" -e "s/\$package_scope/$substitution_value/g" -e "s/{{PACKAGE_SCOPE}}/$substitution_value/g" "$template_path" > "$target_file"
+    if [[ -f "$template_path" ]]; then
+        echo -e "${GREEN}$target_file 파일을 생성합니다...${NC}"
+        if [[ -n "$substitution_value" ]]; then
+            sed -e "s/\$pnpm_version/$substitution_value/g" -e "s/\$package_scope/$substitution_value/g" -e "s/{{PACKAGE_SCOPE}}/$substitution_value/g" "$template_path" > "$target_file"
+        else
+            cp "$template_path" "$target_file"
+        fi
     else
-        cp "$template_path" "$target_file"
+        echo -e "${RED}템플릿 파일을 찾을 수 없습니다: $template_file${NC}" >&2
+        echo -e "${RED}GitHub 연결과 로컬 파일 모두 사용할 수 없습니다.${NC}" >&2
+        exit 1
     fi
 }
 
-# Function to copy template with multiple variable substitutions
+# Function to get template with multiple variable substitutions (GitHub-based)
 copy_template_with_vars() {
     local template_file=$1
     local target_file=$2
     shift 2
     
+    # Try GitHub download first, fallback to local if offline
+    if check_internet_connection; then
+        if download_template_with_vars "$template_file" "$target_file" "$@"; then
+            return 0
+        fi
+    fi
+    
+    # Fallback to local template if GitHub download fails
+    echo -e "${YELLOW}GitHub 다운로드 실패, 로컬 템플릿 사용을 시도합니다...${NC}"
     local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     local template_path="$script_dir/prj-scripts/$template_file"
     
-    if [[ ! -f "$template_path" ]]; then
-        echo -e "${RED}템플릿 파일을 찾을 수 없습니다: $template_path${NC}" >&2
+    if [[ -f "$template_path" ]]; then
+        echo -e "${GREEN}$target_file 파일을 생성합니다...${NC}"
+        
+        # Start with the template content
+        local temp_content
+        temp_content=$(cat "$template_path")
+        
+        # Apply each variable substitution
+        while [[ $# -gt 0 ]]; do
+            local var_name=$1
+            local var_value=$2
+            shift 2
+            
+            # Use sed to replace the variable placeholder
+            temp_content=$(echo "$temp_content" | sed "s/\$$var_name/$var_value/g")
+        done
+        
+        # Write the final content to the target file
+        echo "$temp_content" > "$target_file"
+    else
+        echo -e "${RED}템플릿 파일을 찾을 수 없습니다: $template_file${NC}" >&2
+        echo -e "${RED}GitHub 연결과 로컬 파일 모두 사용할 수 없습니다.${NC}" >&2
         exit 1
     fi
-    
-    echo -e "${GREEN}$target_file 파일을 생성합니다...${NC}"
-    
-    # Start with the template content
-    local temp_content
-    temp_content=$(cat "$template_path")
-    
-    # Apply each variable substitution
-    while [[ $# -gt 0 ]]; do
-        local var_name=$1
-        local var_value=$2
-        shift 2
-        
-        # Use sed to replace the variable placeholder
-        temp_content=$(echo "$temp_content" | sed "s/\$$var_name/$var_value/g")
-    done
-    
-    # Write the final content to the target file
-    echo "$temp_content" > "$target_file"
 }
 
 # Pure function to check if pnpm is installed
@@ -239,26 +355,20 @@ setup_aws_infra_package() {
     echo -e "${GREEN}AWS CDK 의존성을 설치합니다...${NC}"
     pnpm i @react-router/architect aws-cdk aws-cdk-lib constructs esbuild tsx dotenv dotenv-cli
     
-    echo -e "${GREEN}인프라 템플릿 파일들을 복사합니다...${NC}"
-    local aws_infra_templates_dir="$SCRIPT_DIR/prj-scripts/aws-infra"
+    echo -e "${GREEN}인프라 템플릿 파일들을 다운로드합니다...${NC}"
     
-    if [[ -d "$aws_infra_templates_dir" && -n "$(ls -A "$aws_infra_templates_dir" 2>/dev/null)" ]]; then
-        # Copy all files except package.json (already copied above)
-        for file in "$aws_infra_templates_dir"/*; do
-            if [[ "$(basename "$file")" != "package.json" ]]; then
-                if [[ "$(basename "$file")" == "lambda.ts" ]]; then
-                    # Use copy_template_with_vars for lambda.ts to handle package_scope substitution
-                    copy_template_with_vars "aws-infra/lambda.ts" "lambda.ts" \
-                        "package_scope" "$package_scope"
-                else
-                    cp "$file" .
-                fi
-            fi
-        done
-        echo -e "${GREEN}AWS 인프라 템플릿 파일들이 복사되었습니다.${NC}"
-    else
-        echo -e "${YELLOW}AWS 인프라 템플릿 디렉토리가 비어있거나 없습니다. 건너뜁니다.${NC}"
-    fi
+    # Download each aws-infra template file (excluding package.json as it's already copied)
+    copy_template "aws-infra/cdk.ts" "cdk.ts"
+    copy_template "aws-infra/cdk.json" "cdk.json"
+    copy_template "aws-infra/cdk-stack.ts" "cdk-stack.ts"
+    copy_template "aws-infra/delete-dns.ts" "delete-dns.ts"
+    copy_template "aws-infra/infrastructure-readme.md" "infrastructure-readme.md"
+    
+    # Use copy_template_with_vars for lambda.ts to handle package_scope substitution
+    copy_template_with_vars "aws-infra/lambda.ts" "lambda.ts" \
+        "package_scope" "$package_scope"
+    
+    echo -e "${GREEN}AWS 인프라 템플릿 파일들이 다운로드되었습니다.${NC}"
     
     cd ../..
 }
@@ -522,15 +632,18 @@ create_scripts_and_docs() {
     echo -e "${GREEN}AWS 인프라 템플릿 디렉토리를 생성합니다...${NC}"
     mkdir -p packages/scripts/aws-infra
 
-    echo -e "${GREEN}AWS 인프라 템플릿 파일들을 복사합니다...${NC}"
-    local aws_infra_templates_dir="$SCRIPT_DIR/prj-scripts/aws-infra"
+    echo -e "${GREEN}AWS 인프라 템플릿 파일들을 다운로드합니다...${NC}"
     
-    if [[ -d "$aws_infra_templates_dir" && -n "$(ls -A "$aws_infra_templates_dir" 2>/dev/null)" ]]; then
-        cp -r "$aws_infra_templates_dir"/* packages/scripts/aws-infra/
-        echo -e "${GREEN}AWS 인프라 템플릿 파일들이 복사되었습니다.${NC}"
-    else
-        echo -e "${YELLOW}AWS 인프라 템플릿 디렉토리가 비어있거나 없습니다. 건너뜁니다.${NC}"
-    fi
+    # Download each aws-infra template file to packages/scripts/aws-infra/
+    copy_template "aws-infra/cdk.ts" "packages/scripts/aws-infra/cdk.ts"
+    copy_template "aws-infra/cdk.json" "packages/scripts/aws-infra/cdk.json"
+    copy_template "aws-infra/cdk-stack.ts" "packages/scripts/aws-infra/cdk-stack.ts"
+    copy_template "aws-infra/delete-dns.ts" "packages/scripts/aws-infra/delete-dns.ts"
+    copy_template "aws-infra/infrastructure-readme.md" "packages/scripts/aws-infra/infrastructure-readme.md"
+    copy_template "aws-infra/lambda.ts" "packages/scripts/aws-infra/lambda.ts"
+    copy_template "aws-infra/package.json" "packages/scripts/aws-infra/package.json"
+    
+    echo -e "${GREEN}AWS 인프라 템플릿 파일들이 다운로드되었습니다.${NC}"
 
     # Grant execution permissions
     chmod +x packages/scripts/set-aws-infra.sh
@@ -541,15 +654,11 @@ create_scripts_and_docs() {
 setup_telegram_workflows() {
     echo -e "${GREEN}Telegram 워크플로우를 설정합니다...${NC}"
     
-    local telegram_templates_dir="$SCRIPT_DIR/prj-scripts/telegram"
+    # Download telegram workflow template files
+    copy_template "telegram/notify-telegram.yml" ".github/workflows/notify-telegram.yml"
+    copy_template "telegram/notify-telegram-test.yml" ".github/workflows/notify-telegram-test.yml"
     
-    if [[ -d "$telegram_templates_dir" && -n "$(ls -A "$telegram_templates_dir" 2>/dev/null)" ]]; then
-        echo -e "${GREEN}Telegram 워크플로우 파일들을 복사합니다...${NC}"
-        cp -r "$telegram_templates_dir"/* .github/workflows/
-        echo -e "${GREEN}Telegram 워크플로우 파일들이 복사되었습니다.${NC}"
-    else
-        echo -e "${YELLOW}Telegram 템플릿 디렉토리가 비어있거나 없습니다. 건너뜁니다.${NC}"
-    fi
+    echo -e "${GREEN}Telegram 워크플로우 파일들이 다운로드되었습니다.${NC}"
 }
 
 

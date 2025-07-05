@@ -58,7 +58,7 @@ Templates are now organized into namespace directories based on their function c
 
 ## Function Mapping
 
-Each namespace corresponds to specific functions in `start.sh`:
+Each namespace corresponds to specific functions in `prj.sh`:
 
 - `aws-actions/` ← `setup_aws_deployment_workflows()`
 - `config/` ← `setup_react_router_web()` (for app-specific configs)
