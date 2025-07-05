@@ -26,7 +26,8 @@ copy_template() {
     if [[ -n "$substitution_value" ]]; then
         # Replace both pnpm version and package scope placeholders with the provided value
         # This allows flexibility - pass pnpm version for pnpm placeholders, package scope for package scope placeholders
-        sed -e "s/\$pnpm_version/$substitution_value/g" -e "s/\$package_scope/$substitution_value/g" "$template_path" > "$target_file"
+        # Also handle {{PACKAGE_SCOPE}} format for turbo.json and similar templates
+        sed -e "s/\$pnpm_version/$substitution_value/g" -e "s/\$package_scope/$substitution_value/g" -e "s/{{PACKAGE_SCOPE}}/$substitution_value/g" "$template_path" > "$target_file"
     else
         cp "$template_path" "$target_file"
     fi
