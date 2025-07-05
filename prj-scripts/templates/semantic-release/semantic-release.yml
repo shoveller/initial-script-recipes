@@ -6,9 +6,6 @@ on:
       GITHUB_TOKEN:
         required: true
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 permissions:
   contents: write
