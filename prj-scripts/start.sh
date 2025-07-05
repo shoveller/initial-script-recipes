@@ -156,6 +156,17 @@ setup_aws_deployment_workflows() {
     copy_template "aws/deploy-rr7-lambda-s3.yml" ".github/workflows/deploy-rr7-lambda-s3.yml"
 }
 
+# Pure function to setup DNS workflows
+setup_dns_workflows() {
+    echo -e "${GREEN}DNS 워크플로우를 설정합니다...${NC}"
+    
+    # Ensure .github/workflows directory exists
+    mkdir -p .github/workflows
+    
+    echo -e "${GREEN}update-cloudflare-dns.yml 워크플로우를 복사합니다...${NC}"
+    copy_template "cf/update-cloudflare-dns.yml" ".github/workflows/update-cloudflare-dns.yml"
+}
+
 
 # Pure function to setup package.json private field and scripts
 setup_package_json_private() {
@@ -432,18 +443,18 @@ create_scripts_and_docs() {
     echo -e "${GREEN}스크립트 파일들에 실행 권한을 부여했습니다.${NC}"
 }
 
-# Pure function to setup notify-telegram workflows
-setup_notify_telegram_workflows() {
-    echo -e "${GREEN}Notify-Telegram 워크플로우를 설정합니다...${NC}"
+# Pure function to setup telegram workflows
+setup_telegram_workflows() {
+    echo -e "${GREEN}Telegram 워크플로우를 설정합니다...${NC}"
     
-    local notify_templates_dir="$SCRIPT_DIR/templates/notify-telegram"
+    local telegram_templates_dir="$SCRIPT_DIR/templates/telegram"
     
-    if [[ -d "$notify_templates_dir" && -n "$(ls -A "$notify_templates_dir" 2>/dev/null)" ]]; then
-        echo -e "${GREEN}Notify-Telegram 워크플로우 파일들을 복사합니다...${NC}"
-        cp -r "$notify_templates_dir"/* .github/workflows/
-        echo -e "${GREEN}Notify-Telegram 워크플로우 파일들이 복사되었습니다.${NC}"
+    if [[ -d "$telegram_templates_dir" && -n "$(ls -A "$telegram_templates_dir" 2>/dev/null)" ]]; then
+        echo -e "${GREEN}Telegram 워크플로우 파일들을 복사합니다...${NC}"
+        cp -r "$telegram_templates_dir"/* .github/workflows/
+        echo -e "${GREEN}Telegram 워크플로우 파일들이 복사되었습니다.${NC}"
     else
-        echo -e "${YELLOW}Notify-Telegram 템플릿 디렉토리가 비어있거나 없습니다. 건너뜁니다.${NC}"
+        echo -e "${YELLOW}Telegram 템플릿 디렉토리가 비어있거나 없습니다. 건너뜁니다.${NC}"
     fi
 }
 
@@ -639,7 +650,8 @@ main() {
     setup_vscode_workspace
     setup_semantic_release "$pnpm_version"
     setup_aws_deployment_workflows
-    setup_notify_telegram_workflows
+    setup_dns_workflows
+    setup_telegram_workflows
     setup_package_json_private "$pnpm_version"
     setup_turborepo
     setup_husky
