@@ -167,25 +167,25 @@ setup_dns_workflows() {
     copy_template "cf/update-cloudflare-dns.yml" ".github/workflows/update-cloudflare-dns.yml"
 }
 
-# Pure function to setup infra package
-setup_infra_package() {
+# Pure function to setup AWS infra package
+setup_aws_infra_package() {
     local package_scope=$1
     
-    echo -e "${GREEN}인프라 패키지를 설정합니다...${NC}"
-    mkdir -p packages/infra
-    cd packages/infra
+    echo -e "${GREEN}AWS 인프라 패키지를 설정합니다...${NC}"
+    mkdir -p packages/aws-infra
+    cd packages/aws-infra
     
     pnpm init
     
     # Update package.json for infra package
     if command -v jq &> /dev/null; then
-        jq --arg scope "$package_scope" '. + {"name": ($scope + "/infra"), "scripts": {"bootstrap": "cdk bootstrap && cdk deploy --timeout 20 --require-approval never --concurrency 10", "deploy": "cdk deploy --hotswap --require-approval never --concurrency 10 --quiet", "destroy": "node delete-dns.ts && npx cdk destroy --force"}}' package.json > package.json.tmp && mv package.json.tmp package.json
+        jq --arg scope "$package_scope" '. + {"name": ($scope + "/aws-infra"), "scripts": {"bootstrap": "cdk bootstrap && cdk deploy --timeout 20 --require-approval never --concurrency 10", "deploy": "cdk deploy --hotswap --require-approval never --concurrency 10 --quiet", "destroy": "node delete-dns.ts && npx cdk destroy --force"}}' package.json > package.json.tmp && mv package.json.tmp package.json
     else
         # Fallback: Use Node.js for safe JSON manipulation
         node -e "
         const fs = require('fs');
         const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-        pkg.name = \"$package_scope/infra\";
+        pkg.name = \"$package_scope/aws-infra\";
         pkg.scripts = {
             'bootstrap': 'cdk bootstrap && cdk deploy --timeout 20 --require-approval never --concurrency 10',
             'deploy': 'cdk deploy --hotswap --require-approval never --concurrency 10 --quiet',
@@ -201,11 +201,11 @@ setup_infra_package() {
     echo -e "${GREEN}인프라 템플릿 파일들을 복사합니다...${NC}"
     local infra_templates_dir="$SCRIPT_DIR/templates/infra"
     
-    if [[ -d "$infra_templates_dir" && -n "$(ls -A "$infra_templates_dir" 2>/dev/null)" ]]; then
-        cp -r "$infra_templates_dir"/* .
-        echo -e "${GREEN}인프라 템플릿 파일들이 복사되었습니다.${NC}"
+    if [[ -d "$aws_infra_templates_dir" && -n "$(ls -A "$aws_infra_templates_dir" 2>/dev/null)" ]]; then
+        cp -r "$aws_infra_templates_dir"/* .
+        echo -e "${GREEN}AWS 인프라 템플릿 파일들이 복사되었습니다.${NC}"
     else
-        echo -e "${YELLOW}인프라 템플릿 디렉토리가 비어있거나 없습니다. 건너뜁니다.${NC}"
+        echo -e "${YELLOW}AWS 인프라 템플릿 디렉토리가 비어있거나 없습니다. 건너뜁니다.${NC}"
     fi
     
     cd ../..
@@ -467,17 +467,17 @@ create_scripts_and_docs() {
     echo -e "${GREEN}HOW_TO_GET_TOKENS.md 문서를 생성합니다...${NC}"
     copy_template "scripts/HOW_TO_GET_TOKENS.md" "packages/scripts/HOW_TO_GET_TOKENS.md"
 
-    echo -e "${GREEN}인프라 템플릿 디렉토리를 생성합니다...${NC}"
-    mkdir -p packages/scripts/infra
+    echo -e "${GREEN}AWS 인프라 템플릿 디렉토리를 생성합니다...${NC}"
+    mkdir -p packages/scripts/aws-infra
 
-    echo -e "${GREEN}인프라 템플릿 파일들을 복사합니다...${NC}"
-    local infra_templates_dir="$SCRIPT_DIR/templates/infra"
+    echo -e "${GREEN}AWS 인프라 템플릿 파일들을 복사합니다...${NC}"
+    local aws_infra_templates_dir="$SCRIPT_DIR/templates/aws-infra"
     
-    if [[ -d "$infra_templates_dir" && -n "$(ls -A "$infra_templates_dir" 2>/dev/null)" ]]; then
-        cp -r "$infra_templates_dir"/* packages/scripts/infra/
-        echo -e "${GREEN}인프라 템플릿 파일들이 복사되었습니다.${NC}"
+    if [[ -d "$aws_infra_templates_dir" && -n "$(ls -A "$aws_infra_templates_dir" 2>/dev/null)" ]]; then
+        cp -r "$aws_infra_templates_dir"/* packages/scripts/aws-infra/
+        echo -e "${GREEN}AWS 인프라 템플릿 파일들이 복사되었습니다.${NC}"
     else
-        echo -e "${YELLOW}인프라 템플릿 디렉토리가 비어있거나 없습니다. 건너뜁니다.${NC}"
+        echo -e "${YELLOW}AWS 인프라 템플릿 디렉토리가 비어있거나 없습니다. 건너뜁니다.${NC}"
     fi
 
     # Grant execution permissions
@@ -703,7 +703,7 @@ main() {
     add_scripts_to_root_dependencies "$package_scope"
     setup_eslint_package "$package_scope"
     setup_prettier_package "$package_scope"
-    setup_infra_package "$package_scope"
+    setup_aws_infra_package "$package_scope"
     create_root_config_files "$package_scope"
     setup_react_router_web "$package_scope"
     create_scripts_and_docs "$package_scope"

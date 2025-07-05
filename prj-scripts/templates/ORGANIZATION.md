@@ -17,7 +17,7 @@ Templates are now organized into namespace directories based on their function c
 - **eslint/** - ESLint package templates
   - `eslint-index.mjs` - ESLint package main file
 
-- **infra/** - Infrastructure (CDK) templates
+- **aws-infra/** - AWS Infrastructure (CDK) templates
   - `cdk-stack.ts` - CDK stack definition
   - `cdk.json` - CDK configuration
   - `cdk.ts` - CDK application entry point
@@ -64,7 +64,7 @@ Each namespace corresponds to specific functions in `start.sh`:
 - `config/` ← `setup_react_router_web()` (for app-specific configs)
 - `env/` ← `create_env_template()`
 - `eslint/` ← `setup_eslint_package()`
-- `infra/` ← `setup_infra_package()`
+- `aws-infra/` ← `setup_aws_infra_package()`
 - `prettier/` ← `setup_prettier_package()`
 - `project/` ← `create_project_readme()`
 - `react-router/` ← `setup_react_router_web()`
