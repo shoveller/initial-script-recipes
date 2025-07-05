@@ -43,7 +43,7 @@ edit_infra_package_json() {
     echo -e "${GREEN}package.json을 편집합니다...${NC}"
     
     if command -v jq &> /dev/null; then
-        jq --arg scope "$scope_name" '. + {"name": ($scope + "/infra"), "scripts": {"bootstrap": "cdk bootstrap && cdk deploy --timeout 20 --require-approval never --concurrency 10", "deploy": "cdk deploy --hotswap --require-approval never --concurrency 10 --quiet", "destroy": "tsx destroy.ts"}}' package.json > package.json.tmp && mv package.json.tmp package.json
+        jq --arg scope "$scope_name" '. + {"name": ($scope + "/infra"), "scripts": {"bootstrap": "cdk bootstrap && cdk deploy --timeout 20 --require-approval never --concurrency 10", "deploy": "cdk deploy --hotswap --require-approval never --concurrency 10 --quiet", "destroy": "node delete-dns.ts && npx cdk destroy --force"}}' package.json > package.json.tmp && mv package.json.tmp package.json
     else
         node -e "
         const fs = require('fs');
@@ -52,7 +52,7 @@ edit_infra_package_json() {
         pkg.scripts = {
             'bootstrap': 'cdk bootstrap && cdk deploy --timeout 20 --require-approval never --concurrency 10',
             'deploy': 'cdk deploy --hotswap --require-approval never --concurrency 10 --quiet',
-            'destroy': 'tsx destroy.ts'
+            'destroy': 'node delete-dns.ts && npx cdk destroy --force'
         };
         fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
         "

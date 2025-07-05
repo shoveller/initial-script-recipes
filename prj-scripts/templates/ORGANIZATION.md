@@ -21,10 +21,9 @@ Templates are now organized into namespace directories based on their function c
   - `cdk-stack.ts` - CDK stack definition
   - `cdk.json` - CDK configuration
   - `cdk.ts` - CDK application entry point
-  - `destroy.ts` - Stack destruction script
   - `infrastructure-readme.md` - Infrastructure documentation
   - `lambda.ts` - Lambda function template
-  - `delete-dns.ts` - DNS record deletion script
+  - `delete-dns.ts` - DNS record deletion script (독립 실행 가능)
 
 - **prettier/** - Prettier package templates
   - `prettier-index.mjs` - Prettier package main file

@@ -20,20 +20,19 @@ graph TD
     D --> G[Lambda Function URL 생성]
     G --> H[배포 완료]
     
-    I[pnpm destroy] --> J[destroyStackWithDNS 실행]
-    J --> K[DNS 레코드 삭제]
-    K --> L[CDK 스택 삭제]
-    L --> M[정리 완료]
+    I[CLI 명령어 실행] --> J[DNS 레코드 삭제]
+    J --> K[CDK 스택 삭제]
+    K --> L[정리 완료]
     
     classDef startEnd fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:#000000
     classDef cdk fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000000
     classDef aws fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px,color:#000000
     classDef dns fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#000000
     
-    class A,H,I,M startEnd
-    class B,C,J cdk
-    class D,E,F,G,L aws
-    class K dns
+    class A,H,I,L startEnd
+    class B,C cdk
+    class D,E,F,G,K aws
+    class J dns
 ```
 
 ## 🛠️ 스크립트 명령어
@@ -41,10 +40,11 @@ graph TD
 ### 배포 관련
 - `pnpm bootstrap`: CDK 부트스트랩 및 첫 배포
 - `pnpm deploy`: CDK 배포 (hotswap 모드)
-- `pnpm destroy`: CDK 스택 삭제
 
-### DNS 관리
-- `pnpm delete-dns`: DNS 레코드 삭제 (직접 실행)
+### 삭제 관련
+- `npx cdk destroy --force`: CDK 스택만 삭제
+- `node delete-dns.ts`: DNS 레코드만 삭제
+- `node delete-dns.ts && npx cdk destroy --force`: DNS + CDK 스택 모두 삭제
 
 ## 🔧 환경변수 설정
 
@@ -96,8 +96,9 @@ pnpm delete-dns
 3. **CloudFront 배포**: 정적 파일 배포
 
 ### 정리 프로세스
-1. **DNS 삭제**: 스택 삭제 시 DNS 레코드 자동 삭제
-2. **CDK 스택 삭제**: AWS 리소스 정리
+1. **DNS 삭제**: `node delete-dns.ts` 실행
+2. **CDK 스택 삭제**: `npx cdk destroy --force` 실행
+3. **통합 삭제**: `node delete-dns.ts && npx cdk destroy --force` (한 번에 실행)
 
 ## ⚠️ 주의사항
 
@@ -107,10 +108,17 @@ pnpm delete-dns
 ## 🚨 트러블슈팅
 
 ### DNS 삭제 실패 시
-스택 삭제는 성공했지만 DNS 삭제가 실패한 경우 수동으로 실행:
+DNS 삭제가 실패한 경우 수동으로 실행:
 ```bash
 cd packages/infra
-pnpm delete-dns
+node delete-dns.ts
+```
+
+### CDK 스택 삭제 실패 시
+CDK 스택 삭제가 실패한 경우:
+```bash
+cd packages/infra
+npx cdk destroy --force
 ```
 
 ### Wrangler CLI 설치
