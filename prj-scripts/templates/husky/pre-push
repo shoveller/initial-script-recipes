@@ -14,6 +14,8 @@
 # - .env.{environment}.var   → Environment variables (예: .env.staging.var → staging 환경)
 # - .env.org                 → Organization secrets (예: SHARED_DB_URL=postgres://...)
 # - .env.org.var             → Organization variables (예: PUBLIC_API_URL=https://api.com)
+# - .env.dep                 → Dependabot secrets (예: SHARED_DB_URL=postgres://...)
+# - .env.code                → Codespaces secrets (예: SHARED_DB_URL=postgres://...)
 #
 # 파일명 기반 저장 타입 결정:
 # - .var 확장자 없음      → Secret으로 저장 (암호화, 로그 마스킹)
@@ -151,6 +153,23 @@ validate_secret_name() {
     esac
 }
 
+# 환경 이름 예약어 검사
+validate_env_name() {
+    local env_name="$1"
+
+    # 예약어 검사 (var, org, dep, code)
+    case "$env_name" in
+        var|org|dep|code)
+            log_warning "환경 이름 '$env_name'은 예약어입니다"
+            log_warning "예약어: var(변수), org(조직), dep(Dependabot), code(Codespaces)"
+            return 1
+            ;;
+        *)
+            return 0
+            ;;
+    esac
+}
+
 # 파일명에 따른 시크릿 타입 및 저장 타입 결정
 determine_secret_type() {
     local filename="$1"
@@ -162,6 +181,12 @@ determine_secret_type() {
         ".env.org")
             echo "org:secret"
             ;;
+        ".env.dep")
+            echo "dependabot:secret"
+            ;;
+        ".env.code")
+            echo "codespaces:secret"
+            ;;
         ".env.var")
             echo "repo:variable"
             ;;
@@ -171,11 +196,23 @@ determine_secret_type() {
         ".env."*".var")
             # .env.{environment}.var 형태
             local env_name=$(echo "$filename" | sed 's/^\.env\.//' | sed 's/\.var$//')
+            # 예약어 검사
+            if ! validate_env_name "$env_name"; then
+                log_warning "파일 $filename 건너뛰기: 예약어 사용"
+                echo "invalid:reserved"
+                return
+            fi
             echo "env:$env_name:variable"
             ;;
         ".env."*)
             # .env.{environment} 형태
             local env_name=$(echo "$filename" | sed 's/^\.env\.//')
+            # 예약어 검사
+            if ! validate_env_name "$env_name"; then
+                log_warning "파일 $filename 건너뛰기: 예약어 사용"
+                echo "invalid:reserved"
+                return
+            fi
             echo "env:$env_name:secret"
             ;;
         *)
@@ -189,12 +226,12 @@ determine_secret_type() {
 # 환경 생성 함수
 create_environment() {
     local env_name="$1"
-    
+
     log_info "환경 '$env_name' 생성 중..."
-    
+
     # 환경 생성 API 호출
     local response=$(gh api --method PUT "repos/$REPO/environments/$env_name" 2>/dev/null)
-    
+
     if [ $? -eq 0 ]; then
         log_success "환경 '$env_name' 생성 완료"
         return 0
@@ -207,10 +244,10 @@ create_environment() {
 # 환경 존재 확인 함수
 check_environment_exists() {
     local env_name="$1"
-    
+
     # 환경 목록 조회
     local environments=$(gh api "repos/$REPO/environments" --jq '.[].name' 2>/dev/null)
-    
+
     if [ $? -eq 0 ]; then
         echo "$environments" | grep -q "^$env_name$"
         return $?
@@ -224,11 +261,11 @@ upload_env_var() {
     local key="$1"
     local value="$2"
     local type_info="$3"
-    
+
     # 타입 정보 파싱 (repo:secret, org:variable, env:staging:variable 등)
     local secret_type=$(echo "$type_info" | cut -d: -f1)
     local storage_type=$(echo "$type_info" | cut -d: -f2)
-    
+
     case "$secret_type" in
         "repo")
             if [ "$storage_type" = "variable" ]; then
@@ -253,12 +290,37 @@ upload_env_var() {
                 return 1
             fi
             ;;
+        "dependabot")
+            log_info "GitHub CLI 명령어 실행: gh secret set $key --app dependabot --repo $REPO"
+            gh secret set "$key" --body "$value" --app dependabot --repo "$REPO"
+            ;;
+        "codespaces")
+            log_info "GitHub CLI 명령어 실행: gh secret set $key --user"
+            if ! gh secret set "$key" --body "$value" --user 2>/dev/null; then
+                log_error "Codespaces secret 설정 실패: GitHub CLI 인증 문제"
+                log_warning "이는 GitHub CLI의 알려진 이슈입니다. 다음 방법들을 순서대로 시도해보세요:"
+                echo ""
+                log_info "1단계 (권장): 토큰 새로고침"
+                log_info "  gh auth refresh -s codespace"
+                echo ""
+                log_info "2단계: 완전 재로그인"
+                log_info "  gh auth logout"
+                log_info "  gh auth login --scopes 'repo,user,workflow,codespace'"
+                echo ""
+                log_info "3단계: 수동 토큰 설정"
+                log_info "  GitHub 웹에서 Personal Access Token 생성 (codespace 권한 포함)"
+                log_info "  export GITHUB_TOKEN=your_token"
+                echo ""
+                log_info "해결 후 다시 실행해주세요."
+                return 1
+            fi
+            ;;
         "env")
             local env_name=$(echo "$type_info" | cut -d: -f2)
             local env_storage_type=$(echo "$type_info" | cut -d: -f3)
-            
+
             log_info "환경 처리: env_name=$env_name, storage_type=$env_storage_type"
-            
+
             # 환경 존재 확인
             if ! check_environment_exists "$env_name"; then
                 log_warning "환경 '$env_name'이 존재하지 않습니다"
@@ -269,7 +331,7 @@ upload_env_var() {
                     return 1
                 fi
             fi
-            
+
             if [ "$env_storage_type" = "variable" ]; then
                 log_info "GitHub CLI 명령어 실행: gh variable set $key --env $env_name --repo $REPO"
                 gh variable set "$key" --body "$value" --env "$env_name" --repo "$REPO"
@@ -296,7 +358,7 @@ process_env_file() {
     # 타입 정보에서 표시용 정보 추출
     local secret_type=$(echo "$type_info" | cut -d: -f1)
     local storage_type=$(echo "$type_info" | cut -d: -f2)
-    
+
     log_info "$filename 파일 처리 중 (타입: $secret_type $storage_type)"
 
     # .env 파일을 한 줄씩 읽기 (POSIX 호환)
@@ -402,10 +464,17 @@ main() {
     # 각 .env 파일별 환경변수 처리
     for env_file in $ENV_FILES; do
         type_info=$(determine_secret_type "$env_file")
-        
+
         # 타입 정보에서 조직 관련 체크
         local secret_type=$(echo "$type_info" | cut -d: -f1)
-        
+
+        # 예약어 충돌로 인한 invalid 파일 건너뛰기
+        if [ "$secret_type" = "invalid" ]; then
+            echo ""
+            log_warning "$env_file 파일을 건너뜁니다 (예약어 충돌)"
+            continue
+        fi
+
         # .env.org 관련 파일이지만 개인 계정인 경우 건너뛰기
         if [ "$secret_type" = "org" ] && [ "$ACCOUNT_TYPE" != "Organization" ]; then
             echo ""
