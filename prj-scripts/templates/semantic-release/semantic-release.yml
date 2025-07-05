@@ -2,6 +2,17 @@ name: semantic-release
 
 on:
   workflow_call:
+    inputs:
+      pnpm_version:
+        description: 'PNPM Version'
+        required: false
+        type: string
+        default: '9'
+      node_version:
+        description: 'Node.js Version'
+        required: false
+        type: string
+        default: '20'
     secrets:
       GITHUB_TOKEN:
         required: true
@@ -23,13 +34,13 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: '$pnpm_version'
+          version: ${{ inputs.pnpm_version }}
           run_install: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '$node_version'
+          node-version: ${{ inputs.node_version }}
           cache: 'pnpm'
 
       - name: Install dependencies

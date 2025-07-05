@@ -164,7 +164,7 @@ setup_dns_workflows() {
     mkdir -p .github/workflows
     
     echo -e "${GREEN}update-cloudflare-dns.yml 워크플로우를 복사합니다...${NC}"
-    copy_template "cf/update-cloudflare-dns.yml" ".github/workflows/update-cloudflare-dns.yml"
+    copy_template "cf-actions/update-cloudflare-dns.yml" ".github/workflows/update-cloudflare-dns.yml"
 }
 
 # Pure function to setup AWS infra package
