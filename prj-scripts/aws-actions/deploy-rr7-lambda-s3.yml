@@ -20,9 +20,6 @@ on:
             description: 'CNAME for DNS record'
             value: ${{ jobs.deploy.outputs.cname }}
    workflow_dispatch:
-   push:
-      branches:
-         - main
 
 jobs:
    deploy:
