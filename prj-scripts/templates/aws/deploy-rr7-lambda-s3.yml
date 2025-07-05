@@ -1,0 +1,98 @@
+name: Deploy RR7 to aws lambda & s3
+
+on:
+   workflow_call:
+      inputs:
+         pnpm_version:
+            description: 'PNPM Version'
+            required: false
+            type: string
+            default: '9'
+         node_version:
+            description: 'Node.js Version'
+            required: false
+            type: string
+            default: '20'
+      secrets:
+         AWS_ACCOUNT_ID:
+            description: 'AWS Account ID'
+            required: true
+         AWS_DEFAULT_REGION:
+            description: 'AWS Default Region'
+            required: true
+      outputs:
+         deployment_result:
+            description: 'Deployment result output'
+            value: ${{ jobs.deploy.outputs.deployment_result }}
+         url:
+            description: 'Deployment URL'
+            value: ${{ jobs.deploy.outputs.url }}
+         cname:
+            description: 'CNAME for DNS record'
+            value: ${{ jobs.deploy.outputs.cname }}
+   workflow_dispatch:
+   push:
+      branches:
+         - main
+
+jobs:
+   deploy:
+      runs-on: ubuntu-latest
+      outputs:
+         deployment_result: ${{ steps.deploy.outputs.result }}
+         url: ${{ steps.deploy.outputs.url }}
+         cname: ${{ steps.deploy.outputs.cname }}
+      steps:
+         - name: Checkout repository
+           uses: actions/checkout@v4
+
+         - name: Install pnpm
+           uses: pnpm/action-setup@v4
+           with:
+              version: ${{ inputs.pnpm_version }}
+              run_install: false
+
+         - name: Setup Node.js
+           uses: actions/setup-node@v4
+           with:
+              node-version: ${{ inputs.node_version }}
+              cache: 'pnpm'
+
+         - name: Install dependencies
+           run: pnpm i --frozen-lockfile
+
+         - name: Deploy to AWS Lambda
+           id: deploy
+           env:
+              AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+              AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+           run: |
+              echo "Starting deployment..."
+              deployment_output=$(pnpm deploy 2>&1)
+              deployment_status=$?
+              
+              echo "deployment_output<<EOF" >> $GITHUB_OUTPUT
+              echo "$deployment_output" >> $GITHUB_OUTPUT
+              echo "EOF" >> $GITHUB_OUTPUT
+              
+              # Extract URL if available in deployment output
+              deployment_url=$(echo "$deployment_output" | grep -oE 'https?://[^[:space:]]+' | head -1 || echo "")
+              echo "url=$deployment_url" >> $GITHUB_OUTPUT
+              
+              # Extract CNAME (domain without https://) if URL exists
+              if [[ -n "$deployment_url" ]]; then
+                cname_value=$(echo "$deployment_url" | sed 's|^https\?://||' | sed 's|/$||')
+                echo "cname=$cname_value" >> $GITHUB_OUTPUT
+              else
+                echo "cname=" >> $GITHUB_OUTPUT
+              fi
+              
+              # Set result based on exit status
+              if [ $deployment_status -eq 0 ]; then
+                echo "result=success" >> $GITHUB_OUTPUT
+                echo "✅ Deployment successful"
+              else
+                echo "result=failed" >> $GITHUB_OUTPUT
+                echo "❌ Deployment failed"
+                exit $deployment_status
+              fi
