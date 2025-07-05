@@ -390,6 +390,9 @@ setup_package_json_private() {
         const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
         pkg.private = true;
         pkg.packageManager = 'pnpm@$pnpm_version';
+        pkg.engines = {
+            node: '>=20.0.0'
+        };
         pkg.scripts = {
             'format': 'turbo format',
             'dev': 'turbo dev',

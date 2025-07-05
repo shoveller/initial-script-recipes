@@ -2,17 +2,6 @@ name: Deploy RR7 to aws lambda & s3
 
 on:
    workflow_call:
-      inputs:
-         pnpm_version:
-            description: 'PNPM Version'
-            required: false
-            type: string
-            default: '9'
-         node_version:
-            description: 'Node.js Version'
-            required: false
-            type: string
-            default: '20'
       secrets:
          AWS_ACCOUNT_ID:
             description: 'AWS Account ID'
@@ -49,13 +38,13 @@ jobs:
          - name: Install pnpm
            uses: pnpm/action-setup@v4
            with:
-              version: ${{ inputs.pnpm_version }}
+              version: '9.5.0'
               run_install: false
 
          - name: Setup Node.js
            uses: actions/setup-node@v4
            with:
-              node-version: ${{ inputs.node_version }}
+              node-version: '20.0.0'
               cache: 'pnpm'
 
          - name: Install dependencies
