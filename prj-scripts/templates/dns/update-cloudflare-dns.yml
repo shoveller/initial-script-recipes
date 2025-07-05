@@ -1,0 +1,167 @@
+name: Update Cloudflare DNS
+
+on:
+  workflow_call:
+    inputs:
+      cname:
+        description: 'CNAME target to point the domain to'
+        required: true
+        type: string
+      domain:
+        description: 'Domain name for DNS updates'
+        required: false
+        type: string
+      subdomain:
+        description: 'Subdomain for DNS updates'
+        required: false
+        type: string
+    secrets:
+      CLOUDFLARE_API_TOKEN:
+        required: true
+    outputs:
+      deployment_url:
+        description: 'Final deployment URL (custom domain or original URL)'
+        value: ${{ jobs.update-dns.outputs.deployment_url }}
+  workflow_dispatch:
+    inputs:
+      cname:
+        description: 'CNAME target to point the domain to'
+        required: true
+        type: string
+      domain:
+        description: 'Domain name for DNS updates'
+        required: false
+        type: string
+      subdomain:
+        description: 'Subdomain for DNS updates'
+        required: false
+        type: string
+
+jobs:
+  update-dns:
+    runs-on: ubuntu-latest
+    outputs:
+      deployment_url: ${{ steps.dns-update.outputs.deployment_url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Update Cloudflare DNS
+        id: dns-update
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || env.CLOUDFLARE_API_TOKEN }}
+          DOMAIN: ${{ inputs.domain }}
+          SUBDOMAIN: ${{ inputs.subdomain }}
+          RECORD_TYPE: "CNAME"
+          CNAME_TARGET: ${{ inputs.cname }}
+          TTL: "300"
+        run: |
+          # Use CNAME target as record value
+          RECORD_VALUE="$CNAME_TARGET"
+          
+          # Skip DNS update if DOMAIN is not set
+          if [ -z "$DOMAIN" ]; then
+            echo "ℹ️ DOMAIN이 설정되지 않아 DNS 업데이트를 건너뜁니다."
+            echo "deployment_url=https://$CNAME_TARGET" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Determine full domain name based on branch and subdomain
+          BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD)
+          if [ "$BRANCH_NAME" = "main" ]; then
+            if [ -n "$SUBDOMAIN" ]; then
+              FULL_DOMAIN="${SUBDOMAIN}.${DOMAIN}"
+            else
+              FULL_DOMAIN="$DOMAIN"
+            fi
+          else
+            if [ -n "$SUBDOMAIN" ]; then
+              FULL_DOMAIN="${BRANCH_NAME}-${SUBDOMAIN}.${DOMAIN}"
+            else
+              FULL_DOMAIN="${BRANCH_NAME}.${DOMAIN}"
+            fi
+          fi
+
+          echo "🌐 DNS 업데이트 시작: $FULL_DOMAIN → $RECORD_VALUE"
+
+          # Get Zone ID with debugging
+          echo "🔍 도메인 조회 중: $DOMAIN"
+          ZONE_RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=$DOMAIN" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json")
+          
+          echo "📋 API 응답:"
+          echo "$ZONE_RESPONSE" | jq '.'
+          
+          ZONE_ID=$(echo "$ZONE_RESPONSE" | jq -r '.result[0].id // empty')
+          
+          if [ -z "$ZONE_ID" ] || [ "$ZONE_ID" = "null" ]; then
+            echo "❌ 도메인 $DOMAIN의 Zone ID를 찾을 수 없습니다."
+            echo "💡 가능한 원인:"
+            echo "  - 도메인이 Cloudflare에 등록되지 않았음"
+            echo "  - API 토큰에 Zone:Read 권한이 없음"
+            echo "  - 도메인 이름이 정확하지 않음"
+            echo ""
+            echo "⚡ DNS 업데이트 실패, 원본 URL 사용:"
+            echo "deployment_url=https://$CNAME_TARGET" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          echo "📍 Zone ID: $ZONE_ID"
+
+          # Check if record exists
+          RECORD_ID=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records?name=$FULL_DOMAIN&type=$RECORD_TYPE" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json" | jq -r '.result[0].id // empty')
+
+          if [ -n "$RECORD_ID" ] && [ "$RECORD_ID" != "null" ]; then
+            echo "📝 기존 DNS 레코드 발견, 업데이트 중... (ID: $RECORD_ID)"
+            UPDATE_RESPONSE=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$RECORD_ID" \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data '{
+                "type": "'$RECORD_TYPE'",
+                "name": "'$FULL_DOMAIN'",
+                "content": "'$RECORD_VALUE'",
+                "ttl": '$TTL',
+                "proxied": true
+              }')
+            echo "🔍 업데이트 응답: $UPDATE_RESPONSE"
+            
+            # Check if update was successful
+            if echo "$UPDATE_RESPONSE" | jq -e '.success' > /dev/null; then
+              echo "✅ DNS 레코드 업데이트 성공!"
+            else
+              echo "❌ DNS 레코드 업데이트 실패!"
+              echo "$UPDATE_RESPONSE" | jq '.errors[]?' || echo "응답 파싱 실패"
+            fi
+          else
+            echo "➕ 새 DNS 레코드 생성 중..."
+            CREATE_RESPONSE=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records" \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data '{
+                "type": "'$RECORD_TYPE'",
+                "name": "'$FULL_DOMAIN'",
+                "content": "'$RECORD_VALUE'",
+                "ttl": '$TTL',
+                "proxied": true
+              }')
+            echo "🔍 생성 응답: $CREATE_RESPONSE"
+            
+            # Check if creation was successful
+            if echo "$CREATE_RESPONSE" | jq -e '.success' > /dev/null; then
+              echo "✅ DNS 레코드 생성 성공!"
+            else
+              echo "❌ DNS 레코드 생성 실패!"
+              echo "$CREATE_RESPONSE" | jq '.errors[]?' || echo "응답 파싱 실패"
+            fi
+          fi
+
+          # DNS 업데이트 성공 여부와 관계없이 배포 URL 표시
+          FINAL_DEPLOYMENT_URL="https://$FULL_DOMAIN"
+          
+          echo "🚀 배포 완료: $FINAL_DEPLOYMENT_URL"
+          echo "## 🚀 배포 완료" >> $GITHUB_STEP_SUMMARY
+          echo "- 전체 URL: \`$FINAL_DEPLOYMENT_URL\`" >> $GITHUB_STEP_SUMMARY
+          echo "deployment_url=$FINAL_DEPLOYMENT_URL" >> $GITHUB_OUTPUT
