@@ -153,7 +153,7 @@ setup_aws_deployment_workflows() {
     mkdir -p .github/workflows
     
     echo -e "${GREEN}deploy-rr7-lambda-s3.yml 워크플로우를 복사합니다...${NC}"
-    copy_template "aws/deploy-rr7-lambda-s3.yml" ".github/workflows/deploy-rr7-lambda-s3.yml"
+    copy_template "aws-actions/deploy-rr7-lambda-s3.yml" ".github/workflows/deploy-rr7-lambda-s3.yml"
 }
 
 # Pure function to setup DNS workflows

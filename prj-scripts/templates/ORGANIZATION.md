@@ -4,8 +4,8 @@ Templates are now organized into namespace directories based on their function c
 
 ## Directory Structure
 
-- **aws/** - AWS-related templates
-  - `deploy-aws-lambda.yml` - AWS Lambda deployment workflow
+- **aws-actions/** - AWS GitHub Actions workflows
+  - `deploy-rr7-lambda-s3.yml` - AWS Lambda deployment workflow
 
 - **config/** - Configuration files for root project
   - `eslint.config.mjs` - Root ESLint configuration
@@ -60,7 +60,7 @@ Templates are now organized into namespace directories based on their function c
 
 Each namespace corresponds to specific functions in `start.sh`:
 
-- `aws/` ← `create_aws_deployment_workflow()`
+- `aws-actions/` ← `setup_aws_deployment_workflows()`
 - `config/` ← `setup_react_router_web()` (for app-specific configs)
 - `env/` ← `create_env_template()`
 - `eslint/` ← `setup_eslint_package()`
