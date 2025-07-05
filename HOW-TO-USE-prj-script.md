@@ -100,6 +100,6 @@ chmod +x initial-script-recipes/prj-scripts/start.sh
 
 ## 주요 변경사항
 - **단일 스크립트**: 이제 `prj-scripts/start.sh` 하나만 실행하면 전체 스캐폴딩이 완료됩니다
-- **템플릿 기반**: 하드코딩된 내용들이 `prj-scripts/templates/` 디렉토리의 템플릿 파일들로 분리되었습니다
+- **템플릿 기반**: 하드코딩된 내용들이 `prj-scripts/` 디렉토리의 템플릿 파일들로 분리되었습니다
 - **React Router**: Vite + React 대신 React Router를 사용하여 웹 애플리케이션을 생성합니다
 - **통합된 워크플로우**: 기존 `prj.sh`와 `prj-scripts/prj.sh`의 기능이 하나로 통합되었습니다

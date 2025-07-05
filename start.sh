@@ -19,7 +19,7 @@ copy_template() {
     local substitution_value=${3:-""}
     
     local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    local template_path="$script_dir/prj-scripts/templates/$template_file"
+    local template_path="$script_dir/prj-scripts/$template_file"
     
     if [[ ! -f "$template_path" ]]; then
         echo -e "${RED}템플릿 파일을 찾을 수 없습니다: $template_path${NC}" >&2
@@ -45,7 +45,7 @@ copy_template_with_vars() {
     shift 2
     
     local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    local template_path="$script_dir/prj-scripts/templates/$template_file"
+    local template_path="$script_dir/prj-scripts/$template_file"
     
     if [[ ! -f "$template_path" ]]; then
         echo -e "${RED}템플릿 파일을 찾을 수 없습니다: $template_path${NC}" >&2
@@ -240,7 +240,7 @@ setup_aws_infra_package() {
     pnpm i @react-router/architect aws-cdk aws-cdk-lib constructs esbuild tsx dotenv dotenv-cli
     
     echo -e "${GREEN}인프라 템플릿 파일들을 복사합니다...${NC}"
-    local aws_infra_templates_dir="$SCRIPT_DIR/prj-scripts/templates/aws-infra"
+    local aws_infra_templates_dir="$SCRIPT_DIR/prj-scripts/aws-infra"
     
     if [[ -d "$aws_infra_templates_dir" && -n "$(ls -A "$aws_infra_templates_dir" 2>/dev/null)" ]]; then
         # Copy all files except package.json (already copied above)
@@ -523,7 +523,7 @@ create_scripts_and_docs() {
     mkdir -p packages/scripts/aws-infra
 
     echo -e "${GREEN}AWS 인프라 템플릿 파일들을 복사합니다...${NC}"
-    local aws_infra_templates_dir="$SCRIPT_DIR/prj-scripts/templates/aws-infra"
+    local aws_infra_templates_dir="$SCRIPT_DIR/prj-scripts/aws-infra"
     
     if [[ -d "$aws_infra_templates_dir" && -n "$(ls -A "$aws_infra_templates_dir" 2>/dev/null)" ]]; then
         cp -r "$aws_infra_templates_dir"/* packages/scripts/aws-infra/
@@ -541,7 +541,7 @@ create_scripts_and_docs() {
 setup_telegram_workflows() {
     echo -e "${GREEN}Telegram 워크플로우를 설정합니다...${NC}"
     
-    local telegram_templates_dir="$SCRIPT_DIR/prj-scripts/templates/telegram"
+    local telegram_templates_dir="$SCRIPT_DIR/prj-scripts/telegram"
     
     if [[ -d "$telegram_templates_dir" && -n "$(ls -A "$telegram_templates_dir" 2>/dev/null)" ]]; then
         echo -e "${GREEN}Telegram 워크플로우 파일들을 복사합니다...${NC}"
