@@ -167,6 +167,50 @@ setup_dns_workflows() {
     copy_template "cf/update-cloudflare-dns.yml" ".github/workflows/update-cloudflare-dns.yml"
 }
 
+# Pure function to setup infra package
+setup_infra_package() {
+    local package_scope=$1
+    
+    echo -e "${GREEN}인프라 패키지를 설정합니다...${NC}"
+    mkdir -p packages/infra
+    cd packages/infra
+    
+    pnpm init
+    
+    # Update package.json for infra package
+    if command -v jq &> /dev/null; then
+        jq --arg scope "$package_scope" '. + {"name": ($scope + "/infra"), "scripts": {"bootstrap": "cdk bootstrap && cdk deploy --timeout 20 --require-approval never --concurrency 10", "deploy": "cdk deploy --hotswap --require-approval never --concurrency 10 --quiet", "destroy": "node delete-dns.ts && npx cdk destroy --force"}}' package.json > package.json.tmp && mv package.json.tmp package.json
+    else
+        # Fallback: Use Node.js for safe JSON manipulation
+        node -e "
+        const fs = require('fs');
+        const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+        pkg.name = \"$package_scope/infra\";
+        pkg.scripts = {
+            'bootstrap': 'cdk bootstrap && cdk deploy --timeout 20 --require-approval never --concurrency 10',
+            'deploy': 'cdk deploy --hotswap --require-approval never --concurrency 10 --quiet',
+            'destroy': 'node delete-dns.ts && npx cdk destroy --force'
+        };
+        fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+        "
+    fi
+    
+    echo -e "${GREEN}AWS CDK 의존성을 설치합니다...${NC}"
+    pnpm i @react-router/architect aws-cdk aws-cdk-lib constructs esbuild tsx dotenv dotenv-cli
+    
+    echo -e "${GREEN}인프라 템플릿 파일들을 복사합니다...${NC}"
+    local infra_templates_dir="$SCRIPT_DIR/templates/infra"
+    
+    if [[ -d "$infra_templates_dir" && -n "$(ls -A "$infra_templates_dir" 2>/dev/null)" ]]; then
+        cp -r "$infra_templates_dir"/* .
+        echo -e "${GREEN}인프라 템플릿 파일들이 복사되었습니다.${NC}"
+    else
+        echo -e "${YELLOW}인프라 템플릿 디렉토리가 비어있거나 없습니다. 건너뜁니다.${NC}"
+    fi
+    
+    cd ../..
+}
+
 
 # Pure function to setup package.json private field and scripts
 setup_package_json_private() {
@@ -418,8 +462,6 @@ create_scripts_and_docs() {
 
     echo -e "${GREEN}스크립트와 문서 파일들을 생성합니다...${NC}"
     
-    echo -e "${GREEN}set-aws-infra.sh 파일을 생성합니다...${NC}"
-    copy_template "scripts/set-aws-infra.sh" "packages/scripts/set-aws-infra.sh"
 
 
     echo -e "${GREEN}HOW_TO_GET_TOKENS.md 문서를 생성합니다...${NC}"
@@ -661,6 +703,7 @@ main() {
     add_scripts_to_root_dependencies "$package_scope"
     setup_eslint_package "$package_scope"
     setup_prettier_package "$package_scope"
+    setup_infra_package "$package_scope"
     create_root_config_files "$package_scope"
     setup_react_router_web "$package_scope"
     create_scripts_and_docs "$package_scope"

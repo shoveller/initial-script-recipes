@@ -38,7 +38,6 @@ Templates are now organized into namespace directories based on their function c
 - **scripts/** - Utility scripts
   - `format.mjs` - Code formatting script
   - `scripts-readme.md` - Scripts package documentation
-  - `set-aws-infra.sh` - AWS infrastructure setup script
   - `sync-catalog.mjs` - Package catalog synchronization
   - `sync-versions.mjs` - Version synchronization script
 
@@ -69,7 +68,7 @@ Each namespace corresponds to specific functions in `start.sh`:
 - `prettier/` ← `setup_prettier_package()`
 - `project/` ← `create_project_readme()`
 - `react-router/` ← `setup_react_router_web()`
-- `scripts/` ← `setup_scripts_package()`, `create_aws_infra_script()`, `setup_scripts_readme()`
+- `scripts/` ← `setup_scripts_package()`, `setup_scripts_readme()`
 - `semantic-release/` ← `setup_semantic_release()`
 - `typescript/` ← `setup_typescript()`
 - `vscode/` ← `setup_vscode_workspace()`
