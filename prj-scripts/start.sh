@@ -145,6 +145,17 @@ setup_semantic_release() {
         "node_version" "$node_version"
 }
 
+# Pure function to setup AWS deployment workflows
+setup_aws_deployment_workflows() {
+    echo -e "${GREEN}AWS 배포 워크플로우를 설정합니다...${NC}"
+    
+    # Ensure .github/workflows directory exists
+    mkdir -p .github/workflows
+    
+    echo -e "${GREEN}deploy-rr7-lambda-s3.yml 워크플로우를 복사합니다...${NC}"
+    copy_template "aws/deploy-rr7-lambda-s3.yml" ".github/workflows/deploy-rr7-lambda-s3.yml"
+}
+
 
 # Pure function to setup package.json private field and scripts
 setup_package_json_private() {
@@ -627,6 +638,7 @@ main() {
     setup_typescript
     setup_vscode_workspace
     setup_semantic_release "$pnpm_version"
+    setup_aws_deployment_workflows
     setup_notify_telegram_workflows
     setup_package_json_private "$pnpm_version"
     setup_turborepo
