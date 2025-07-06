@@ -92,7 +92,7 @@ download_template_with_vars() {
             shift 2
             
             # Use sed to replace the variable placeholder
-            temp_content=$(echo "$temp_content" | sed "s/\$$var_name/$var_value/g")
+            temp_content=$(echo "$temp_content" | sed -e "s/\$$var_name/$var_value/g" -e "s/{{$var_name}}/$var_value/g")
         done
         
         # Write the final content to the target file
