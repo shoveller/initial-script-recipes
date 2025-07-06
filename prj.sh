@@ -297,7 +297,7 @@ setup_semantic_release() {
     
     echo -e "${GREEN}Node.js 버전 $node_version을 감지했습니다.${NC}"
 
-    copy_template_with_vars "semantic-release/semantic-release.yml" ".github/workflows/semantic-release.yml" \
+    copy_template_with_vars "workflows/semantic-release.yml" ".github/workflows/semantic-release.yml" \
         "pnpm_version" "$pnpm_version" \
         "node_version" "$node_version"
 }
@@ -310,7 +310,7 @@ setup_aws_deployment_workflows() {
     mkdir -p .github/workflows
     
     echo -e "${GREEN}deploy-rr7-lambda-s3.yml 워크플로우를 복사합니다...${NC}"
-    copy_template "aws-actions/deploy-rr7-lambda-s3.yml" ".github/workflows/deploy-rr7-lambda-s3.yml"
+    copy_template "workflows/deploy-rr7-lambda-s3.yml" ".github/workflows/deploy-rr7-lambda-s3.yml"
 }
 
 # Pure function to setup DNS workflows
@@ -321,7 +321,7 @@ setup_dns_workflows() {
     mkdir -p .github/workflows
     
     echo -e "${GREEN}update-cloudflare-dns.yml 워크플로우를 복사합니다...${NC}"
-    copy_template "cf-actions/update-cloudflare-dns.yml" ".github/workflows/update-cloudflare-dns.yml"
+    copy_template "workflows/update-cloudflare-dns.yml" ".github/workflows/update-cloudflare-dns.yml"
 }
 
 # Pure function to setup AWS infra package
@@ -584,8 +584,8 @@ setup_telegram_workflows() {
     echo -e "${GREEN}Telegram 워크플로우를 설정합니다...${NC}"
     
     # Download telegram workflow template files
-    copy_template "telegram/notify-telegram.yml" ".github/workflows/notify-telegram.yml"
-    copy_template "telegram/notify-telegram-test.yml" ".github/workflows/notify-telegram-test.yml"
+    copy_template "workflows/notify-telegram.yml" ".github/workflows/notify-telegram.yml"
+    copy_template "workflows/notify-telegram-test.yml" ".github/workflows/notify-telegram-test.yml"
     
     echo -e "${GREEN}Telegram 워크플로우 파일들이 다운로드되었습니다.${NC}"
 }

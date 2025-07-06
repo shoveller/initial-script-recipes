@@ -4,9 +4,6 @@ Templates are now organized into namespace directories based on their function c
 
 ## Directory Structure
 
-- **aws-actions/** - AWS GitHub Actions workflows
-  - `deploy-rr7-lambda-s3.yml` - AWS Lambda deployment workflow
-
 - **env/** - Environment configuration
   - `.env` - Environment variables template
 
@@ -48,7 +45,6 @@ Templates are now organized into namespace directories based on their function c
 
 - **semantic-release/** - Semantic release templates
   - `release.config.ts` - Semantic release configuration
-  - `semantic-release.yml` - GitHub Actions workflow
 
 - **typescript/** - TypeScript configuration
   - `tsconfig.json` - TypeScript configuration
@@ -56,6 +52,13 @@ Templates are now organized into namespace directories based on their function c
 - **vscode/** - VS Code workspace templates
   - `vscode-extensions.json` - Recommended extensions
   - `vscode-settings.json` - Workspace settings
+
+- **workflows/** - GitHub Actions workflow templates
+  - `deploy-rr7-lambda-s3.yml` - AWS Lambda deployment workflow
+  - `update-cloudflare-dns.yml` - Cloudflare DNS update workflow
+  - `notify-telegram.yml` - Telegram notification workflow
+  - `notify-telegram-test.yml` - Telegram notification test workflow
+  - `semantic-release.yml` - Semantic release workflow
 
 - **workspace/** - Monorepo workspace templates
   - `pnpm-workspace.yaml` - PNPM workspace configuration
@@ -65,7 +68,6 @@ Templates are now organized into namespace directories based on their function c
 
 Each namespace corresponds to specific functions in `prj.sh`:
 
-- `aws-actions/` ← `setup_aws_deployment_workflows()`
 - `env/` ← `create_env_template()`
 - `eslint/` ← `setup_eslint_package()`
 - `aws-infra/` ← `setup_aws_infra_package()`
@@ -77,4 +79,5 @@ Each namespace corresponds to specific functions in `prj.sh`:
 - `semantic-release/` ← `setup_semantic_release()`
 - `typescript/` ← `setup_typescript()`
 - `vscode/` ← `setup_vscode_workspace()`
+- `workflows/` ← `setup_aws_deployment_workflows()`, `setup_dns_workflows()`, `setup_telegram_workflows()`, `setup_semantic_release()`
 - `workspace/` ← `create_workspace_structure()`
