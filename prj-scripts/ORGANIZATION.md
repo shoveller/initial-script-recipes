@@ -27,6 +27,9 @@ Templates are now organized into namespace directories based on their function c
   - `README.md` - Project README template
   - `eslint.config.mjs` - Root ESLint configuration
   - `prettier.config.mjs` - Root Prettier configuration
+  - `.gitignore` - Git ignore rules
+  - `release.config.ts` - Semantic release configuration
+  - `tsconfig.json` - TypeScript configuration
   - `package.json` - Project package.json template
   - `pnpm-workspace.yaml` - PNPM workspace configuration
   - `turbo.json` - Turborepo configuration
@@ -42,12 +45,6 @@ Templates are now organized into namespace directories based on their function c
   - `scripts-readme.md` - Scripts package documentation
   - `sync-catalog.mjs` - Package catalog synchronization
   - `sync-versions.mjs` - Version synchronization script
-
-- **semantic-release/** - Semantic release templates
-  - `release.config.ts` - Semantic release configuration
-
-- **typescript/** - TypeScript configuration
-  - `tsconfig.json` - TypeScript configuration
 
 - **vscode/** - VS Code workspace templates
   - `vscode-extensions.json` - Recommended extensions
@@ -73,11 +70,9 @@ Each namespace corresponds to specific functions in `prj.sh`:
 - `aws-infra/` ← `setup_aws_infra_package()`
 - `prettier/` ← `setup_prettier_package()`
 - `project/` ← `create_project_readme()`
-- `projectRoot/` ← `setup_prettier_config()`, `setup_eslint_config()`, `setup_package_json_private()`, `create_workspace_structure()`
+- `projectRoot/` ← `setup_prettier_config()`, `setup_eslint_config()`, `setup_package_json_private()`, `create_workspace_structure()`, `setup_gitignore()`, `setup_semantic_release()`, `setup_typescript()`
 - `react-router/` ← `setup_react_router_web()` (includes app-specific configs)
 - `scripts/` ← `setup_scripts_package()`, `setup_scripts_readme()`
-- `semantic-release/` ← `setup_semantic_release()`
-- `typescript/` ← `setup_typescript()`
 - `vscode/` ← `setup_vscode_workspace()`
 - `workflows/` ← `setup_aws_deployment_workflows()`, `setup_dns_workflows()`, `setup_telegram_workflows()`, `setup_semantic_release()`
 - `workspace/` ← `create_workspace_structure()`

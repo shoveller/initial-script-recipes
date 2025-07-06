@@ -245,7 +245,7 @@ init_project() {
 # Pure function to setup gitignore
 setup_gitignore() {
     echo -e "${GREEN}.gitignore 파일을 생성합니다...${NC}"
-    copy_template "gitignore/.gitignore" ".gitignore"
+    copy_template "projectRoot/.gitignore" ".gitignore"
 }
 
 # Pure function to setup @types/node
@@ -271,7 +271,7 @@ setup_typescript() {
     echo -e "${GREEN}TypeScript를 설치합니다...${NC}"
     pnpm i -D typescript
     
-    copy_template "typescript/tsconfig.json" "tsconfig.json"
+    copy_template "projectRoot/tsconfig.json" "tsconfig.json"
 }
 
 # Pure function to setup semantic-release
@@ -281,7 +281,7 @@ setup_semantic_release() {
     echo -e "${GREEN}semantic-release를 설치합니다...${NC}"
     pnpm i -D semantic-release @semantic-release/commit-analyzer @semantic-release/release-notes-generator @semantic-release/changelog @semantic-release/npm @semantic-release/github @semantic-release/git
     
-    copy_template "semantic-release/release.config.ts" "release.config.ts"
+    copy_template "projectRoot/release.config.ts" "release.config.ts"
 
     echo -e "${GREEN}GitHub Actions workflow 디렉토리를 생성합니다...${NC}"
     mkdir -p .github/workflows
