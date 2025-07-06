@@ -3,8 +3,11 @@ name: Deploy RR7 to aws lambda & s3
 on:
    workflow_call:
       secrets:
-         AWS_ACCOUNT_ID:
-            description: 'AWS Account ID'
+         AWS_ACCESS_KEY_ID:
+            description: 'AWS Access Key ID'
+            required: true
+         AWS_SECRET_ACCESS_KEY:
+            description: 'AWS Secret Access Key'
             required: true
          AWS_DEFAULT_REGION:
             description: 'AWS Default Region'
@@ -54,7 +57,7 @@ jobs:
          - name: Setup Node.js
            uses: actions/setup-node@v4
            with:
-              node-version: '20.0.0'
+              node-version: '20.x'
               cache: 'pnpm'
 
          - name: Install dependencies
@@ -77,21 +80,21 @@ jobs:
          - name: Deploy to AWS Lambda
            id: deploy
            env:
-              AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+              AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+              AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
               AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-              CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
-              CDK_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
               NODE_ENV: production
            run: |
               echo "🚀 Starting deployment..."
               echo "Environment variables:"
-              echo "- AWS_ACCOUNT_ID: ${AWS_ACCOUNT_ID:0:4}****"
+              echo "- AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:0:4}****"
               echo "- AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION"
+              echo "- NODE_ENV: $NODE_ENV"
               
               # Run deployment with detailed logging
               echo "📦 Running pnpm deploy..."
               set -x
-              deployment_output=$(pnpm deploy 2>&1)
+              deployment_output=$(pnpm turbo deploy 2>&1)
               deployment_status=$?
               set +x
               
@@ -145,7 +148,7 @@ jobs:
               if [ $deployment_status -eq 0 ]; then
                 echo "result=success" >> $GITHUB_OUTPUT
                 echo "✅ Deployment successful"
-                
+              
                 # Create deployment message for notifications
                 deployment_message="✅ 배포 성공"
                 if [[ -n "$deployment_url" ]]; then
@@ -158,7 +161,7 @@ jobs:
                   deployment_message="$deployment_message\n📊 총 시간: $total_time"
                 fi
                 echo "deployment_message=$deployment_message" >> $GITHUB_OUTPUT
-                
+              
                 # Add deployment summary to GitHub Step Summary
                 echo "## 🚀 배포 성공" >> $GITHUB_STEP_SUMMARY
                 echo "| 항목 | 값 |" >> $GITHUB_STEP_SUMMARY
@@ -195,11 +198,11 @@ jobs:
               else
                 echo "result=failed" >> $GITHUB_OUTPUT
                 echo "❌ Deployment failed with exit code: $deployment_status"
-                
+              
                 # Create failure message for notifications
                 deployment_message="❌ 배포 실패\n🔍 종료 코드: $deployment_status\n🌿 브랜치: ${{ github.ref_name }}"
                 echo "deployment_message=$deployment_message" >> $GITHUB_OUTPUT
-                
+              
                 # Add failure summary to GitHub Step Summary
                 echo "## ❌ 배포 실패" >> $GITHUB_STEP_SUMMARY
                 echo "| 항목 | 값 |" >> $GITHUB_STEP_SUMMARY
@@ -213,7 +216,7 @@ jobs:
                 echo "- CDK 부트스트랩 완료 여부 확인" >> $GITHUB_STEP_SUMMARY
                 echo "- 필요한 패키지의 배포 스크립트 존재 여부 확인" >> $GITHUB_STEP_SUMMARY
                 echo "- AWS 계정 ID 및 리전 설정 확인" >> $GITHUB_STEP_SUMMARY
-                
+              
                 echo "🔍 Troubleshooting info:"
                 echo "- Check AWS credentials and permissions"
                 echo "- Verify CDK bootstrap is completed"
