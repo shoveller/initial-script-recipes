@@ -3,10 +3,14 @@
   "version": "1.0.0",
   "description": "AWS infrastructure package using CDK",
   "main": "cdk.js",
+  "exports": {
+    "./scripts/launch": "./package.json",
+    "./scripts/destroy": "./package.json"
+  },
   "scripts": {
     "bootstrap": "cdk bootstrap && cdk deploy --timeout 20 --require-approval never --concurrency 10",
     "hotswap": "cdk deploy --hotswap --require-approval never --concurrency 10 --quiet",
-    "deploy": "if aws cloudformation describe-stacks --stack-name CDKToolkit > /dev/null 2>&1; then pnpm hotswap; else pnpm bootstrap; fi",
+    "launch": "if aws cloudformation describe-stacks --stack-name nonstop-main > /dev/null 2>&1; then echo 'Stack exists, running hotswap...' && pnpm hotswap; else echo 'Stack does not exist, running bootstrap...' && pnpm bootstrap; fi",
     "destroy": "pnpm tsx ./delete-dns.ts && pnpx cdk destroy --force"
   },
   "keywords": ["aws", "cdk", "infrastructure"],

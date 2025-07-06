@@ -21,7 +21,7 @@ const branchName = execSync('git rev-parse --abbrev-ref HEAD', {
     encoding: 'utf-8'
 }).trim()
 const environment = process.env.NODE_ENV || 'development'
-const lambdaEntry = path.join(__dirname, './entry/lambda.ts')
+const lambdaEntry = path.join(__dirname, './lambda.ts')
 const staticAssetPath = path.join(
     __dirname,
     '../../apps/web/build/client/assets'
