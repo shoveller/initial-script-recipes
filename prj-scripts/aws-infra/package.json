@@ -7,7 +7,7 @@
     "bootstrap": "cdk bootstrap && cdk deploy --timeout 20 --require-approval never --concurrency 10",
     "deploy": "cdk deploy --hotswap --require-approval never --concurrency 10 --quiet",
     "deploy:conditional": "if aws cloudformation describe-stacks --stack-name CDKToolkit > /dev/null 2>&1; then pnpm deploy; else pnpm bootstrap; fi",
-    "destroy": "node delete-dns.ts && npx cdk destroy --force"
+    "destroy": "pnpm tsx ./delete-dns.ts && pnpx cdk destroy --force"
   },
   "keywords": ["aws", "cdk", "infrastructure"],
   "author": "",
