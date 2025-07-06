@@ -10,8 +10,6 @@ jobs:
   semantic-release:
     name: Create Release Notes
     uses: ./.github/workflows/semantic-release.yml
-    secrets:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   deploy-lambda:
     name: Deploy to AWS Lambda & S3
