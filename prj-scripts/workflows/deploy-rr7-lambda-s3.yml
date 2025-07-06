@@ -99,9 +99,20 @@ jobs:
               echo "- NODE_ENV: $NODE_ENV"
               
               # Run deployment with detailed logging
-              echo "📦 Running pnpm deploy..."
+              echo "📦 Building web app..."
               set -x
-              deployment_output=$(pnpm turbo deploy 2>&1)
+              pnpm --filter @illuwa/web build
+              build_status=$?
+              set +x
+              
+              if [ $build_status -ne 0 ]; then
+                echo "❌ Build failed with exit code: $build_status"
+                exit $build_status
+              fi
+              
+              echo "🚀 Deploying to AWS..."
+              set -x
+              deployment_output=$(pnpm --filter @illuwa/aws-infra launch 2>&1)
               deployment_status=$?
               set +x
               

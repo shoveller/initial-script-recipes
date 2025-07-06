@@ -8,8 +8,8 @@
     "aws-destroy": "./scripts/destroy.cjs"
   },
   "scripts": {
-    "bootstrap": "cdk bootstrap && cdk deploy --timeout 20 --require-approval never --concurrency 10",
-    "hotswap": "cdk deploy --hotswap --require-approval never --concurrency 10 --quiet",
+    "bootstrap": "CDK_DEFAULT_ACCOUNT=$AWS_ACCOUNT_ID CDK_DEFAULT_REGION=$AWS_DEFAULT_REGION cdk bootstrap && CDK_DEFAULT_ACCOUNT=$AWS_ACCOUNT_ID CDK_DEFAULT_REGION=$AWS_DEFAULT_REGION cdk deploy --timeout 20 --require-approval never --concurrency 10",
+    "hotswap": "CDK_DEFAULT_ACCOUNT=$AWS_ACCOUNT_ID CDK_DEFAULT_REGION=$AWS_DEFAULT_REGION cdk deploy --hotswap --require-approval never --concurrency 10 --quiet",
     "launch": "if aws cloudformation describe-stacks --stack-name nonstop-main > /dev/null 2>&1; then echo 'Stack exists, running hotswap...' && pnpm hotswap; else echo 'Stack does not exist, running bootstrap...' && pnpm bootstrap; fi",
     "destroy": "pnpm tsx ./delete-dns.ts && pnpx cdk destroy --force"
   },

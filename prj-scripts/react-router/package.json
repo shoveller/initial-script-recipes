@@ -8,7 +8,7 @@
   },
   "scripts": {
     "format": "format-app apps/web",
-    "deploy": "aws-launch",
+    "deploy": "pnpm --filter @illuwa/aws-infra launch",
     "destroy": "aws-destroy"
   }
 }
