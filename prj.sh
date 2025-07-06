@@ -502,38 +502,15 @@ setup_scripts_package() {
     cd ../..
 }
 
-# Pure function to setup ESLint package
-setup_eslint_package() {
-    local package_scope=$1
-
-    echo -e "${GREEN}ESLint 패키지를 설정합니다...${NC}"
-    mkdir -p packages/eslint
-    cd packages/eslint
-
-    pnpm init
-
-    # Update package.json for ESLint package
-    if command -v jq &> /dev/null; then
-        jq --arg scope "$package_scope" '. + {"name": ($scope + "/eslint"), "private": true, "main": "index.mjs"}' package.json > package.json.tmp && mv package.json.tmp package.json
-    else
-        # Fallback: Use Node.js for safe JSON manipulation
-        node -e "
-        const fs = require('fs');
-        const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-        pkg.name = \"$package_scope/eslint\";
-        pkg.private = true;
-        pkg.main = 'index.mjs';
-        fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-        "
-    fi
-
+# Pure function to setup ESLint configuration
+setup_eslint_config() {
+    echo -e "${GREEN}프로젝트 루트 ESLint 설정을 생성합니다...${NC}"
+    
     echo -e "${GREEN}ESLint 의존성을 설치합니다...${NC}"
-    pnpm i @eslint/js eslint globals typescript-eslint eslint-plugin-unused-imports @typescript-eslint/eslint-plugin @typescript-eslint/parser
+    pnpm i -D @eslint/js eslint globals typescript-eslint eslint-plugin-unused-imports @typescript-eslint/eslint-plugin @typescript-eslint/parser
 
     echo -e "${GREEN}ESLint 설정 파일을 생성합니다...${NC}"
-    copy_template "eslint/eslint-index.mjs" "index.mjs"
-
-    cd ../..
+    copy_template "projectRoot/eslint.config.mjs" "eslint.config.mjs"
 }
 
 # Pure function to setup Prettier package
@@ -575,9 +552,6 @@ create_root_config_files() {
     local package_scope=$1
 
     echo -e "${GREEN}루트 설정 파일을 생성합니다...${NC}"
-
-    # Create eslint.config.mjs
-    echo "export { default } from \"$package_scope/eslint\"" > eslint.config.mjs
 
     # Create prettier.config.mjs
     echo "export { default } from \"$package_scope/prettier\"" > prettier.config.mjs
@@ -634,9 +608,9 @@ setup_react_router_web() {
         "
     fi
 
-    echo -e "${GREEN}devDependencies에 scripts, eslint, prettier 패키지를 추가합니다...${NC}"
+    echo -e "${GREEN}devDependencies에 scripts, prettier 패키지를 추가합니다...${NC}"
     if command -v jq &> /dev/null; then
-        jq --arg scope "$package_scope" '.devDependencies += {($scope + "/scripts"): "workspace:*", ($scope + "/eslint"): "workspace:*", ($scope + "/prettier"): "workspace:*"}' package.json > package.json.tmp && mv package.json.tmp package.json
+        jq --arg scope "$package_scope" '.devDependencies += {($scope + "/scripts"): "workspace:*", ($scope + "/prettier"): "workspace:*"}' package.json > package.json.tmp && mv package.json.tmp package.json
     else
         # Fallback: Use Node.js for safe JSON manipulation
         node -e "
@@ -644,7 +618,6 @@ setup_react_router_web() {
         const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
         pkg.devDependencies = pkg.devDependencies || {};
         pkg.devDependencies[\"$package_scope/scripts\"] = 'workspace:*';
-        pkg.devDependencies[\"$package_scope/eslint\"] = 'workspace:*';
         pkg.devDependencies[\"$package_scope/prettier\"] = 'workspace:*';
         fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
         "
@@ -807,7 +780,7 @@ main() {
     setup_scripts_package "$package_scope"
     setup_scripts_readme
     add_scripts_to_root_dependencies "$package_scope"
-    setup_eslint_package "$package_scope"
+    setup_eslint_config
     setup_prettier_package "$package_scope"
     setup_aws_infra_package "$package_scope"
     create_root_config_files "$package_scope"
