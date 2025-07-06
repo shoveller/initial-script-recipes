@@ -245,23 +245,7 @@ init_project() {
 # Pure function to setup gitignore
 setup_gitignore() {
     echo -e "${GREEN}.gitignore 파일을 생성합니다...${NC}"
-    pnpm dlx mrm@latest gitignore
-
-    echo -e "${GREEN}.gitignore 파일을 수정합니다...${NC}"
-    # .vscode/ 항목 삭제
-    sed -i.bak '/^\.vscode\/$/d' .gitignore
-
-    # .lh/ 항목 추가
-    echo ".lh/" >> .gitignore
-    
-    # .turbo/ 항목 추가
-    echo ".turbo/" >> .gitignore
-
-    # cdk.out/ 항목 추가
-    echo "cdk.out/" >> .gitignore
-
-    # 백업 파일 삭제
-    rm -f .gitignore.bak
+    copy_template "gitignore/.gitignore" ".gitignore"
 }
 
 # Pure function to setup @types/node
