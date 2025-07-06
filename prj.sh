@@ -346,7 +346,7 @@ setup_aws_infra_package() {
     copy_template "aws-infra/cdk.json" "cdk.json"
     copy_template "aws-infra/cdk-stack.ts" "cdk-stack.ts"
     copy_template "aws-infra/delete-dns.ts" "delete-dns.ts"
-    copy_template "aws-infra/infrastructure-readme.md" "infrastructure-readme.md"
+    copy_template "aws-infra/README.md" "README.md"
     
     # Use copy_template_with_vars for lambda.ts to handle package_scope substitution
     copy_template_with_vars "aws-infra/lambda.ts" "lambda.ts" \

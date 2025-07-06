@@ -17,7 +17,7 @@ Templates are now organized into namespace directories based on their function c
   - `cdk-stack.ts` - CDK stack definition
   - `cdk.json` - CDK configuration
   - `cdk.ts` - CDK application entry point
-  - `infrastructure-readme.md` - Infrastructure documentation
+  - `README.md` - AWS Infrastructure README
   - `lambda.ts` - Lambda function template
   - `delete-dns.ts` - DNS record deletion script (독립 실행 가능)
 
