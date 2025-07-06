@@ -733,7 +733,7 @@ setup_vscode_workspace() {
 create_project_readme() {
     echo -e "${GREEN}프로젝트 README.md 파일을 생성합니다...${NC}"
     
-    copy_template "project/README.md" "README.md"
+    copy_template "workspace/README.md" "README.md"
 }
 
 # Pure function to create .env file template
