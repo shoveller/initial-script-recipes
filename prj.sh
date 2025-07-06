@@ -674,6 +674,17 @@ setup_telegram_workflows() {
     echo -e "${GREEN}Telegram 워크플로우 파일들이 다운로드되었습니다.${NC}"
 }
 
+# Pure function to setup main deployment workflow
+setup_main_deploy_workflow() {
+    echo -e "${GREEN}메인 배포 워크플로우를 설정합니다...${NC}"
+    
+    # Ensure .github/workflows directory exists
+    mkdir -p .github/workflows
+    
+    echo -e "${GREEN}deploy.yml 워크플로우를 복사합니다...${NC}"
+    copy_template "workflows/deploy.yml" ".github/workflows/deploy.yml"
+}
+
 # Pure function to setup React Router web app
 setup_react_router_web() {
     local package_scope=$1
@@ -826,6 +837,7 @@ main() {
     setup_aws_deployment_workflows
     setup_dns_workflows
     setup_telegram_workflows
+    setup_main_deploy_workflow
     setup_package_json_private "$pnpm_version" "$project_name"
     setup_turborepo
     setup_husky

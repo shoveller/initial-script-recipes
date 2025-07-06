@@ -19,6 +19,15 @@ on:
          cname:
             description: 'CNAME for DNS record'
             value: ${{ jobs.deploy.outputs.cname }}
+         deployment_message:
+            description: 'Deployment summary message for notifications'
+            value: ${{ jobs.deploy.outputs.deployment_message }}
+         cloudfront_url:
+            description: 'CloudFront URL if available'
+            value: ${{ jobs.deploy.outputs.cloudfront_url }}
+         lambda_url:
+            description: 'Lambda URL if available'
+            value: ${{ jobs.deploy.outputs.lambda_url }}
    workflow_dispatch:
 
 jobs:
@@ -28,9 +37,13 @@ jobs:
          deployment_result: ${{ steps.deploy.outputs.result }}
          url: ${{ steps.deploy.outputs.url }}
          cname: ${{ steps.deploy.outputs.cname }}
+         deployment_message: ${{ steps.deploy.outputs.deployment_message }}
+         cloudfront_url: ${{ steps.deploy.outputs.cloudfront_url }}
+         lambda_url: ${{ steps.deploy.outputs.lambda_url }}
       steps:
          - name: Checkout repository
            uses: actions/checkout@v4
+
 
          - name: Install pnpm
            uses: pnpm/action-setup@v4
@@ -47,38 +60,163 @@ jobs:
          - name: Install dependencies
            run: pnpm i --frozen-lockfile
 
+         - name: Pre-deployment checks
+           run: |
+              echo "🔍 Pre-deployment checks..."
+              echo "Current directory: $(pwd)"
+              echo "Available packages:"
+              find . -name "package.json" -not -path "./node_modules/*" | head -10
+              echo "Checking turbo configuration..."
+              if [ -f "turbo.json" ]; then
+                echo "✅ turbo.json found"
+                grep -A 5 '"deploy"' turbo.json || echo "⚠️  No deploy task found in turbo.json"
+              else
+                echo "❌ turbo.json not found"
+              fi
+
          - name: Deploy to AWS Lambda
            id: deploy
            env:
               AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
               AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+              CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+              CDK_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+              NODE_ENV: production
            run: |
-              echo "Starting deployment..."
+              echo "🚀 Starting deployment..."
+              echo "Environment variables:"
+              echo "- AWS_ACCOUNT_ID: ${AWS_ACCOUNT_ID:0:4}****"
+              echo "- AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION"
+              
+              # Run deployment with detailed logging
+              echo "📦 Running pnpm deploy..."
+              set -x
               deployment_output=$(pnpm deploy 2>&1)
               deployment_status=$?
+              set +x
+              
+              echo "📋 Deployment output:"
+              echo "$deployment_output"
               
               echo "deployment_output<<EOF" >> $GITHUB_OUTPUT
               echo "$deployment_output" >> $GITHUB_OUTPUT
               echo "EOF" >> $GITHUB_OUTPUT
               
-              # Extract URL if available in deployment output
-              deployment_url=$(echo "$deployment_output" | grep -oE 'https?://[^[:space:]]+' | head -1 || echo "")
+              # Extract URLs from deployment output (CloudFront preferred, Lambda as backup)
+              cloudfront_url=$(echo "$deployment_output" | grep -oE 'https://[a-zA-Z0-9]+\.cloudfront\.net[^[:space:]]*' | head -1 || echo "")
+              lambda_url=$(echo "$deployment_output" | grep -oE 'https://[a-zA-Z0-9]+\.lambda-url\.[a-zA-Z0-9-]+\.on\.aws[^[:space:]]*' | head -1 || echo "")
+              
+              # Prefer CloudFront URL, fall back to Lambda URL
+              if [[ -n "$cloudfront_url" ]]; then
+                deployment_url="$cloudfront_url"
+                echo "🌐 CloudFront URL detected: $deployment_url"
+              elif [[ -n "$lambda_url" ]]; then
+                deployment_url="$lambda_url"
+                echo "🌐 Lambda URL detected: $deployment_url"
+              else
+                # Try to extract any https URL as final fallback
+                deployment_url=$(echo "$deployment_output" | grep -oE 'https?://[^[:space:]]+' | head -1 || echo "")
+                if [[ -n "$deployment_url" ]]; then
+                  echo "🌐 Generic URL detected: $deployment_url"
+                else
+                  echo "⚠️  No deployment URL found in output"
+                fi
+              fi
+              
               echo "url=$deployment_url" >> $GITHUB_OUTPUT
+              echo "cloudfront_url=$cloudfront_url" >> $GITHUB_OUTPUT
+              echo "lambda_url=$lambda_url" >> $GITHUB_OUTPUT
               
               # Extract CNAME (domain without https://) if URL exists
               if [[ -n "$deployment_url" ]]; then
                 cname_value=$(echo "$deployment_url" | sed 's|^https\?://||' | sed 's|/$||')
                 echo "cname=$cname_value" >> $GITHUB_OUTPUT
+                echo "🏷️  CNAME: $cname_value"
               else
                 echo "cname=" >> $GITHUB_OUTPUT
               fi
+              
+              # Extract deployment time and additional info
+              deployment_time=$(echo "$deployment_output" | grep -oE 'Deployment time: [0-9]+\.[0-9]+s' || echo "")
+              total_time=$(echo "$deployment_output" | grep -oE 'Total time: [0-9]+\.[0-9]+s' || echo "")
+              stack_name=$(echo "$deployment_output" | grep -oE 'nonstop-[a-zA-Z0-9-]+' | head -1 || echo "")
               
               # Set result based on exit status
               if [ $deployment_status -eq 0 ]; then
                 echo "result=success" >> $GITHUB_OUTPUT
                 echo "✅ Deployment successful"
+                
+                # Create deployment message for notifications
+                deployment_message="✅ 배포 성공"
+                if [[ -n "$deployment_url" ]]; then
+                  deployment_message="$deployment_message\n🌐 URL: $deployment_url"
+                fi
+                if [[ -n "$deployment_time" ]]; then
+                  deployment_message="$deployment_message\n⏱️ 배포 시간: $deployment_time"
+                fi
+                if [[ -n "$total_time" ]]; then
+                  deployment_message="$deployment_message\n📊 총 시간: $total_time"
+                fi
+                echo "deployment_message=$deployment_message" >> $GITHUB_OUTPUT
+                
+                # Add deployment summary to GitHub Step Summary
+                echo "## 🚀 배포 성공" >> $GITHUB_STEP_SUMMARY
+                echo "| 항목 | 값 |" >> $GITHUB_STEP_SUMMARY
+                echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+                echo "| 배포 상태 | ✅ 성공 |" >> $GITHUB_STEP_SUMMARY
+                if [[ -n "$stack_name" ]]; then
+                  echo "| 스택 이름 | \`$stack_name\` |" >> $GITHUB_STEP_SUMMARY
+                fi
+                if [[ -n "$deployment_url" ]]; then
+                  echo "| 배포 URL | [$deployment_url]($deployment_url) |" >> $GITHUB_STEP_SUMMARY
+                fi
+                if [[ -n "$cloudfront_url" ]]; then
+                  echo "| CloudFront URL | [$cloudfront_url]($cloudfront_url) |" >> $GITHUB_STEP_SUMMARY
+                fi
+                if [[ -n "$lambda_url" ]]; then
+                  echo "| Lambda URL | [$lambda_url]($lambda_url) |" >> $GITHUB_STEP_SUMMARY
+                fi
+                if [[ -n "$cname_value" ]]; then
+                  echo "| CNAME | \`$cname_value\` |" >> $GITHUB_STEP_SUMMARY
+                fi
+                if [[ -n "$deployment_time" ]]; then
+                  echo "| 배포 시간 | $deployment_time |" >> $GITHUB_STEP_SUMMARY
+                fi
+                if [[ -n "$total_time" ]]; then
+                  echo "| 총 시간 | $total_time |" >> $GITHUB_STEP_SUMMARY
+                fi
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "### 배포 세부 정보" >> $GITHUB_STEP_SUMMARY
+                echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                echo "Branch: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+                echo "Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+                echo "Triggered by: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+                echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
               else
                 echo "result=failed" >> $GITHUB_OUTPUT
-                echo "❌ Deployment failed"
+                echo "❌ Deployment failed with exit code: $deployment_status"
+                
+                # Create failure message for notifications
+                deployment_message="❌ 배포 실패\n🔍 종료 코드: $deployment_status\n🌿 브랜치: ${{ github.ref_name }}"
+                echo "deployment_message=$deployment_message" >> $GITHUB_OUTPUT
+                
+                # Add failure summary to GitHub Step Summary
+                echo "## ❌ 배포 실패" >> $GITHUB_STEP_SUMMARY
+                echo "| 항목 | 값 |" >> $GITHUB_STEP_SUMMARY
+                echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+                echo "| 배포 상태 | ❌ 실패 |" >> $GITHUB_STEP_SUMMARY
+                echo "| 종료 코드 | \`$deployment_status\` |" >> $GITHUB_STEP_SUMMARY
+                echo "| 브랜치 | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "### 🔍 문제 해결 가이드" >> $GITHUB_STEP_SUMMARY
+                echo "- AWS 자격 증명 및 권한 확인" >> $GITHUB_STEP_SUMMARY
+                echo "- CDK 부트스트랩 완료 여부 확인" >> $GITHUB_STEP_SUMMARY
+                echo "- 필요한 패키지의 배포 스크립트 존재 여부 확인" >> $GITHUB_STEP_SUMMARY
+                echo "- AWS 계정 ID 및 리전 설정 확인" >> $GITHUB_STEP_SUMMARY
+                
+                echo "🔍 Troubleshooting info:"
+                echo "- Check AWS credentials and permissions"
+                echo "- Verify CDK bootstrap is completed"
+                echo "- Check if all required packages have deploy scripts"
                 exit $deployment_status
               fi

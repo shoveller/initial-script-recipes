@@ -1,0 +1,65 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  semantic-release:
+    name: Create Release Notes
+    uses: ./.github/workflows/semantic-release.yml
+    secrets:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-lambda:
+    name: Deploy to AWS Lambda & S3
+    needs: semantic-release
+    if: always()
+    uses: ./.github/workflows/deploy-rr7-lambda-s3.yml
+    secrets:
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+
+  update-dns:
+    name: Update Cloudflare DNS
+    needs: deploy-lambda
+    if: needs.deploy-lambda.result == 'success'
+    uses: ./.github/workflows/update-cloudflare-dns.yml
+    with:
+      cname: ${{ needs.deploy-lambda.outputs.cname }}
+      domain: ${{ vars.DOMAIN }}
+      subdomain: ${{ vars.SUBDOMAIN }}
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+  notify-telegram:
+    name: Notify Deployment Result
+    needs: [semantic-release, deploy-lambda, update-dns]
+    if: always()
+    uses: ./.github/workflows/notify-telegram.yml
+    with:
+      deployment_result: ${{ (needs.deploy-lambda.result == 'success' && (needs.update-dns.result == 'success' || needs.update-dns.result == 'skipped')) && 'success' || 'failure' }}
+      message: |
+        🚀 **배포 결과 상세**
+        
+        **🎯 실행 모드:** ${{ github.event_name == 'workflow_dispatch' && '🖱️ 수동 실행' || '🔄 자동 배포' }}
+        
+        **📋 각 단계 상태:**
+        • 릴리즈 노트: ${{ needs.semantic-release.result == 'success' && '✅ 성공' || '❌ 실패' }}
+        • AWS 배포: ${{ needs.deploy-lambda.result == 'success' && '✅ 성공' || '❌ 실패' }}
+        • DNS 업데이트: ${{ needs.update-dns.result == 'success' && '✅ 성공' || needs.update-dns.result == 'skipped' && '⏭️ 건너뜀' || needs.update-dns.result == 'failure' && '❌ 실패' || '⏸️ 미실행' }}
+        
+        **🌐 배포 URL:**
+        ${{ needs.update-dns.outputs.deployment_url || needs.deploy-lambda.outputs.url || '❌ URL 생성 실패' }}
+        
+        **📊 상세 정보:**
+        • 커밋: `${{ github.sha }}`
+        • 트리거: ${{ github.actor }}
+        • 브랜치: `${{ github.ref_name }}`
+        
+        ${{ needs.semantic-release.result == 'success' && '📝 **릴리즈 노트가 생성되었습니다!**' || '' }}
+    secrets:
+      TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
