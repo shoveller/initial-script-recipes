@@ -9,13 +9,14 @@ const awsInfraDir = path.resolve(__dirname, '..')
 try {
   console.log('🚀 Starting AWS deployment...')
   console.log(`📁 Working directory: ${awsInfraDir}`)
-  
+
   // launch 스크립트 실행 (pnpm 사용)
   execSync('pnpm run launch', {
     cwd: awsInfraDir,
-    stdio: 'inherit'
+    stdio: 'inherit',
+    env: process.env
   })
-  
+
   console.log('✅ Deployment completed successfully!')
 } catch (error) {
   console.error('❌ Deployment failed:', error.message)
