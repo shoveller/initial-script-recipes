@@ -144,6 +144,49 @@ copy_template() {
     fi
 }
 
+# Function to merge React Router package.json with template customizations
+merge_react_router_package_json() {
+    local template_file=$1
+    local package_scope=$2
+    
+    echo -e "${GREEN}React Router package.json과 템플릿을 병합합니다...${NC}"
+    
+    # Download template file with variable substitution
+    copy_template_with_vars "$template_file" "/tmp/package_customizations.json" \
+        "package_scope" "$package_scope"
+    
+    # Merge the existing package.json with template customizations
+    if command -v jq &> /dev/null; then
+        # Use jq for safe JSON merging
+        jq -s '.[0] * .[1]' package.json /tmp/package_customizations.json > package.json.tmp && mv package.json.tmp package.json
+    else
+        # Fallback: Use Node.js for safe JSON merging
+        node -e "
+        const fs = require('fs');
+        const existing = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+        const template = JSON.parse(fs.readFileSync('/tmp/package_customizations.json', 'utf8'));
+        
+        // Merge devDependencies
+        existing.devDependencies = existing.devDependencies || {};
+        Object.assign(existing.devDependencies, template.devDependencies || {});
+        
+        // Merge scripts
+        existing.scripts = existing.scripts || {};
+        Object.assign(existing.scripts, template.scripts || {});
+        
+        // Override name
+        if (template.name) {
+            existing.name = template.name;
+        }
+        
+        fs.writeFileSync('package.json', JSON.stringify(existing, null, 2) + '\n');
+        "
+    fi
+    
+    # Clean up temporary file
+    rm -f /tmp/package_customizations.json
+}
+
 # Function to get template with multiple variable substitutions (GitHub-based)
 copy_template_with_vars() {
     local template_file=$1
@@ -524,6 +567,40 @@ setup_prettier_config() {
     copy_template "projectRoot/prettier.config.mjs" "prettier.config.mjs"
 }
 
+# Pure function to setup ESLint package
+setup_eslint_package() {
+    local package_scope=$1
+
+    echo -e "${GREEN}ESLint 패키지를 설정합니다...${NC}"
+    mkdir -p packages/eslint
+    cd packages/eslint
+
+    pnpm init
+
+    # Update package.json for ESLint package
+    if command -v jq &> /dev/null; then
+        jq --arg scope "$package_scope" '. + {"name": ($scope + "/eslint"), "private": true, "main": "index.mjs"}' package.json > package.json.tmp && mv package.json.tmp package.json
+    else
+        # Fallback: Use Node.js for safe JSON manipulation
+        node -e "
+        const fs = require('fs');
+        const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+        pkg.name = \"$package_scope/eslint\";
+        pkg.private = true;
+        pkg.main = 'index.mjs';
+        fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+        "
+    fi
+
+    echo -e "${GREEN}ESLint 의존성을 설치합니다...${NC}"
+    pnpm i @eslint/js eslint globals typescript-eslint eslint-plugin-unused-imports @typescript-eslint/eslint-plugin @typescript-eslint/parser
+
+    echo -e "${GREEN}ESLint 설정 파일을 생성합니다...${NC}"
+    copy_template "projectRoot/eslint.config.mjs" "index.mjs"
+
+    cd ../..
+}
+
 # Pure function to setup Prettier package
 setup_prettier_package() {
     local package_scope=$1
@@ -605,47 +682,8 @@ setup_react_router_web() {
     # Move to web directory and update package.json
     cd web
 
-    echo -e "${GREEN}package.json의 name 필드를 업데이트합니다...${NC}"
-    if command -v jq &> /dev/null; then
-        jq --arg scope "$package_scope" '. + {"name": ($scope + "/web")}' package.json > package.json.tmp && mv package.json.tmp package.json
-    else
-        # Fallback: Use Node.js for safe JSON manipulation
-        node -e "
-        const fs = require('fs');
-        const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-        pkg.name = \"$package_scope/web\";
-        fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-        "
-    fi
-
-    echo -e "${GREEN}devDependencies에 scripts, prettier 패키지를 추가합니다...${NC}"
-    if command -v jq &> /dev/null; then
-        jq --arg scope "$package_scope" '.devDependencies += {($scope + "/scripts"): "workspace:*", ($scope + "/prettier"): "workspace:*"}' package.json > package.json.tmp && mv package.json.tmp package.json
-    else
-        # Fallback: Use Node.js for safe JSON manipulation
-        node -e "
-        const fs = require('fs');
-        const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-        pkg.devDependencies = pkg.devDependencies || {};
-        pkg.devDependencies[\"$package_scope/scripts\"] = 'workspace:*';
-        pkg.devDependencies[\"$package_scope/prettier\"] = 'workspace:*';
-        fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-        "
-    fi
-
-    echo -e "${GREEN}npm scripts에 format 스크립트를 추가합니다...${NC}"
-    if command -v jq &> /dev/null; then
-        jq '.scripts += {"format": "format-app apps/web"}' package.json > package.json.tmp && mv package.json.tmp package.json
-    else
-        # Fallback: Use Node.js for safe JSON manipulation
-        node -e "
-        const fs = require('fs');
-        const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-        pkg.scripts = pkg.scripts || {};
-        pkg.scripts.format = 'format-app apps/web';
-        fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-        "
-    fi
+    echo -e "${GREEN}package.json을 템플릿과 병합합니다...${NC}"
+    merge_react_router_package_json "react-router/package.json" "$package_scope"
 
     echo -e "${GREEN}eslint.config.mjs 파일을 생성합니다...${NC}"
     copy_template "react-router/eslint.config.mjs" "eslint.config.mjs" "$package_scope"
@@ -791,6 +829,7 @@ main() {
     setup_scripts_readme
     add_scripts_to_root_dependencies "$package_scope"
     setup_eslint_config
+    setup_eslint_package "$package_scope"
     setup_prettier_config
     setup_prettier_package "$package_scope"
     setup_aws_infra_package "$package_scope"

@@ -1,0 +1,14 @@
+{
+  "name": "$package_scope/web",
+  "devDependencies": {
+    "$package_scope/scripts": "workspace:*",
+    "$package_scope/eslint": "workspace:*",
+    "$package_scope/prettier": "workspace:*",
+    "$package_scope/aws-infra": "workspace:*"
+  },
+  "scripts": {
+    "format": "format-app apps/web",
+    "deploy": "aws-launch",
+    "destroy": "aws-destroy"
+  }
+}

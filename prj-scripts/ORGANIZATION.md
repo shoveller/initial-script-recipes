@@ -8,7 +8,7 @@ Templates are now organized into namespace directories based on their function c
   - `.env` - Environment variables template
 
 - **eslint/** - ESLint package templates
-  - `eslint-index.mjs` - ESLint package main file
+  - `index.mjs` - ESLint package main file (copied from projectRoot/eslint.config.mjs)
 
 - **aws-infra/** - AWS Infrastructure (CDK) templates
   - `cdk-stack.ts` - CDK stack definition
