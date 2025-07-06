@@ -513,6 +513,17 @@ setup_eslint_config() {
     copy_template "projectRoot/eslint.config.mjs" "eslint.config.mjs"
 }
 
+# Pure function to setup Prettier configuration
+setup_prettier_config() {
+    echo -e "${GREEN}프로젝트 루트 Prettier 설정을 생성합니다...${NC}"
+    
+    echo -e "${GREEN}Prettier 의존성을 설치합니다...${NC}"
+    pnpm i -D prettier prettier-plugin-classnames prettier-plugin-css-order @ianvs/prettier-plugin-sort-imports
+
+    echo -e "${GREEN}Prettier 설정 파일을 생성합니다...${NC}"
+    copy_template "projectRoot/prettier.config.mjs" "prettier.config.mjs"
+}
+
 # Pure function to setup Prettier package
 setup_prettier_package() {
     local package_scope=$1
@@ -542,19 +553,18 @@ setup_prettier_package() {
     pnpm i prettier prettier-plugin-classnames prettier-plugin-css-order @ianvs/prettier-plugin-sort-imports
 
     echo -e "${GREEN}Prettier 설정 파일을 생성합니다...${NC}"
-    copy_template "prettier/prettier-index.mjs" "index.mjs"
+    # Note: Prettier configuration is now handled by setup_prettier_config()
 
     cd ../..
 }
 
-# Pure function to create root config files
+# Pure function to create root config files (deprecated - moved to individual setup functions)
 create_root_config_files() {
     local package_scope=$1
 
     echo -e "${GREEN}루트 설정 파일을 생성합니다...${NC}"
-
-    # Create prettier.config.mjs
-    echo "export { default } from \"$package_scope/prettier\"" > prettier.config.mjs
+    # Note: Root config files are now created by individual setup functions
+    # - prettier.config.mjs: setup_prettier_config()
 }
 
 # Pure function to create scripts and documentation
@@ -781,9 +791,9 @@ main() {
     setup_scripts_readme
     add_scripts_to_root_dependencies "$package_scope"
     setup_eslint_config
+    setup_prettier_config
     setup_prettier_package "$package_scope"
     setup_aws_infra_package "$package_scope"
-    create_root_config_files "$package_scope"
     setup_react_router_web "$package_scope"
     create_scripts_and_docs "$package_scope"
     create_project_readme

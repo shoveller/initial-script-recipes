@@ -22,10 +22,17 @@ Templates are now organized into namespace directories based on their function c
   - `delete-dns.ts` - DNS record deletion script (독립 실행 가능)
 
 - **prettier/** - Prettier package templates
-  - `prettier-index.mjs` - Prettier package main file
 
 - **project/** - Project-level templates
   - `README.md` - Project README template
+
+- **projectRoot/** - Project root configuration templates
+  - `README.md` - Project README template
+  - `eslint.config.mjs` - Root ESLint configuration
+  - `prettier.config.mjs` - Root Prettier configuration
+  - `package.json` - Project package.json template
+  - `pnpm-workspace.yaml` - PNPM workspace configuration
+  - `turbo.json` - Turborepo configuration
 
 - **react-router/** - React Router application templates
   - `error-boundary.tsx` - Error boundary component
@@ -64,6 +71,7 @@ Each namespace corresponds to specific functions in `prj.sh`:
 - `aws-infra/` ← `setup_aws_infra_package()`
 - `prettier/` ← `setup_prettier_package()`
 - `project/` ← `create_project_readme()`
+- `projectRoot/` ← `setup_prettier_config()`, `setup_eslint_config()`, `setup_package_json_private()`, `create_workspace_structure()`
 - `react-router/` ← `setup_react_router_web()` (includes app-specific configs)
 - `scripts/` ← `setup_scripts_package()`, `setup_scripts_readme()`
 - `semantic-release/` ← `setup_semantic_release()`
