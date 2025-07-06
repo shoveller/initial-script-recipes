@@ -361,35 +361,13 @@ setup_aws_infra_package() {
 # Pure function to setup package.json private field and scripts
 setup_package_json_private() {
     local pnpm_version=$1
+    local project_name=$2
 
     echo -e "${GREEN}package.json에 private: true, packageManager, scripts를 설정합니다...${NC}"
-
-    # Use jq if available, otherwise use sed
-    if command -v jq &> /dev/null; then
-        jq --arg version "$pnpm_version" '. + {"private": true, "packageManager": ("pnpm@" + $version), "scripts": {"preinstall": "sync-catalog", "format": "turbo format", "dev": "turbo dev", "sync-catalog": "sync-catalog", "prepare": "husky", "bootstrap": "turbo bootstrap", "build": "turbo build", "deploy": "turbo deploy", "destroy": "turbo destroy"}}' package.json > package.json.tmp && mv package.json.tmp package.json
-    else
-        # Fallback: Create a proper package.json using Node.js
-        node -e "
-        const fs = require('fs');
-        const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-        pkg.private = true;
-        pkg.packageManager = 'pnpm@$pnpm_version';
-        pkg.engines = {
-            node: '>=20.0.0'
-        };
-        pkg.scripts = {
-            'format': 'turbo format',
-            'dev': 'turbo dev',
-            'sync-catalog': 'sync-catalog',
-            'prepare': 'husky',
-            'bootstrap': 'turbo bootstrap',
-            'build': 'turbo build',
-            'deploy': 'turbo deploy',
-            'destroy': 'turbo destroy'
-        };
-        fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-        "
-    fi
+    
+    copy_template_with_vars "workspace/package.json" "package.json" \
+        "pnpm_version" "$pnpm_version" \
+        "project_name" "$project_name"
 }
 
 # Pure function to install and setup turborepo
@@ -822,7 +800,7 @@ main() {
     setup_aws_deployment_workflows
     setup_dns_workflows
     setup_telegram_workflows
-    setup_package_json_private "$pnpm_version"
+    setup_package_json_private "$pnpm_version" "$project_name"
     setup_turborepo
     setup_husky
     create_workspace_structure "$package_scope" "$project_name"

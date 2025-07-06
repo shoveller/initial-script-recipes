@@ -1,0 +1,19 @@
+{
+  "name": "$project_name",
+  "private": true,
+  "packageManager": "pnpm@$pnpm_version",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "preinstall": "sync-catalog",
+    "format": "turbo format",
+    "dev": "turbo dev",
+    "sync-catalog": "sync-catalog",
+    "prepare": "husky",
+    "bootstrap": "turbo bootstrap",
+    "build": "turbo build",
+    "deploy": "turbo deploy",
+    "destroy": "turbo destroy"
+  }
+}
