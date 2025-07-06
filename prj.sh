@@ -365,7 +365,7 @@ setup_package_json_private() {
 
     echo -e "${GREEN}package.json에 private: true, packageManager, scripts를 설정합니다...${NC}"
     
-    copy_template_with_vars "workspace/package.json" "package.json" \
+    copy_template_with_vars "projectRoot/package.json" "package.json" \
         "pnpm_version" "$pnpm_version" \
         "project_name" "$project_name"
 }
@@ -404,10 +404,10 @@ create_workspace_structure() {
     mkdir -p apps packages
 
     echo -e "${GREEN}pnpm-workspace.yaml을 생성합니다...${NC}"
-    copy_template "workspace/pnpm-workspace.yaml" "pnpm-workspace.yaml"
+    copy_template "projectRoot/pnpm-workspace.yaml" "pnpm-workspace.yaml"
 
     echo -e "${GREEN}turbo.json을 생성합니다...${NC}"
-    copy_template "workspace/turbo.json" "turbo.json" "$package_scope"
+    copy_template "projectRoot/turbo.json" "turbo.json" "$package_scope"
 }
 
 # Pure function to create sync-catalog script
@@ -733,7 +733,7 @@ setup_vscode_workspace() {
 create_project_readme() {
     echo -e "${GREEN}프로젝트 README.md 파일을 생성합니다...${NC}"
     
-    copy_template "workspace/README.md" "README.md"
+    copy_template "projectRoot/README.md" "README.md"
 }
 
 # Pure function to create .env file template
