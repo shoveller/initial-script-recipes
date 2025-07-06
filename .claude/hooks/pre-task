@@ -1,0 +1,63 @@
+#!/bin/bash
+
+# Claude Code Pre-Task Hook
+# 새로운 작업이 시작될 때마다 실행되는 훅
+# 사용자의 요청을 분석하여 GitHub 이슈를 자동으로 생성합니다.
+
+# 훅 디렉토리 경로
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# 사용자 입력 받기 (Claude Code에서 전달되는 명령어나 컨텍스트)
+USER_REQUEST="$1"
+
+# 사용자 입력이 없으면 대화형으로 입력 받기
+if [ -z "$USER_REQUEST" ]; then
+    echo "🤖 Claude Code 작업 시작"
+    echo "📝 작업 내용을 입력하세요:"
+    read -r USER_REQUEST
+fi
+
+# 사용자 입력이 여전히 없으면 종료
+if [ -z "$USER_REQUEST" ]; then
+    echo "❌ 작업 내용이 입력되지 않았습니다."
+    exit 1
+fi
+
+# 특정 키워드가 포함된 경우에만 이슈 생성
+# (간단한 질문이나 조회성 요청은 제외)
+SHOULD_CREATE_ISSUE=false
+
+# 코드 관련 키워드 확인
+if echo "$USER_REQUEST" | grep -E -i "(구현|개발|추가|수정|리팩토링|버그|오류|기능|컴포넌트|함수|클래스|테스트|빌드|배포|설치|설정|변경|업데이트|삭제|제거|최적화|성능|보안)" > /dev/null; then
+    SHOULD_CREATE_ISSUE=true
+fi
+
+# 복잡한 요청인지 확인 (문장 길이나 복잡도 기준)
+if [ ${#USER_REQUEST} -gt 50 ]; then
+    SHOULD_CREATE_ISSUE=true
+fi
+
+# 다중 단계 작업인지 확인
+if echo "$USER_REQUEST" | grep -E "(그리고|또한|다음|그 다음|단계|순서|차례|과정)" > /dev/null; then
+    SHOULD_CREATE_ISSUE=true
+fi
+
+# 이슈 생성 결정
+if [ "$SHOULD_CREATE_ISSUE" = true ]; then
+    echo "🎯 작업 시작: $USER_REQUEST"
+    echo "📋 GitHub 이슈 생성 중..."
+    
+    # GitHub 이슈 생성
+    node "$HOOK_DIR/github-issue-manager.js" start "$USER_REQUEST"
+    
+    if [ $? -eq 0 ]; then
+        echo "✅ 이슈 생성 완료"
+        echo "🔗 GitHub에서 진행 상황을 확인할 수 있습니다."
+    else
+        echo "⚠️  이슈 생성에 실패했지만 작업을 계속 진행합니다."
+    fi
+else
+    echo "💭 간단한 질문이나 조회성 요청으로 판단되어 이슈를 생성하지 않습니다."
+fi
+
+echo "🚀 작업을 시작합니다..."

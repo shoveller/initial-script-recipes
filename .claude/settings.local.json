@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__github__get_issue",
+      "mcp__github__update_issue",
+      "Bash(gh:*)",
+      "Bash(rg:*)",
+      "Bash(grep:*)",
+      "Bash(mkdir:*)",
+      "Bash(chmod:*)",
+      "Bash(cp:*)",
+      "Bash(ls:*)",
+      "Bash(sed:*)",
+      "Bash(awk:*)",
+      "Bash(mv:*)",
+      "Bash(find:*)",
+      "Bash(tree:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(rm:*)",
+      "mcp__github__create_issue",
+      "Bash(./start.sh:*)",
+      "Bash(curl:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(git:*)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "context7-mcp",
+    "github",
+    "github-projects"
+  ],
+  "hooks": {
+    "onTaskComplete": "echo '🎉 작업 완료! 선택하세요: 1) 커밋: \"커밋\" 2) 커밋+이슈: \"커밋이슈\" 3) 이슈만: \"이슈\"'"
+  }
+}

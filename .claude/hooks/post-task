@@ -1,0 +1,127 @@
+#!/bin/bash
+
+# Claude Code Post-Task Hook
+# 작업이 완료될 때마다 실행되는 훅
+# 작업 결과를 분석하여 GitHub 이슈를 업데이트하거나 완료 처리합니다.
+
+# 훅 디렉토리 경로
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# 작업 완료 상태 확인
+TASK_STATUS="$1"  # success, error, partial 등
+TASK_SUMMARY="$2" # 작업 요약
+
+# 인자가 없으면 대화형으로 입력 받기
+if [ -z "$TASK_STATUS" ]; then
+    echo "🤖 Claude Code 작업 완료"
+    echo "📝 작업 상태를 선택하세요:"
+    echo "1) 완료 (success)"
+    echo "2) 오류 발생 (error)"
+    echo "3) 부분 완료 (partial)"
+    echo "4) 진행 중 (progress)"
+    read -p "선택 (1-4): " choice
+    
+    case $choice in
+        1) TASK_STATUS="success";;
+        2) TASK_STATUS="error";;
+        3) TASK_STATUS="partial";;
+        4) TASK_STATUS="progress";;
+        *) TASK_STATUS="unknown";;
+    esac
+fi
+
+if [ -z "$TASK_SUMMARY" ]; then
+    echo "📋 작업 요약을 입력하세요:"
+    read -r TASK_SUMMARY
+fi
+
+# 현재 진행 중인 이슈가 있는지 확인
+if [ ! -f "$HOOK_DIR/session-state.json" ]; then
+    echo "💭 진행 중인 이슈가 없습니다."
+    exit 0
+fi
+
+# 상태에 따른 처리
+case $TASK_STATUS in
+    "success")
+        echo "✅ 작업 완료 처리 중..."
+        
+        # Git 상태 확인
+        if git status --porcelain | grep -q .; then
+            TASK_SUMMARY="$TASK_SUMMARY
+
+### 📁 변경된 파일들
+\`\`\`
+$(git status --porcelain)
+\`\`\`"
+        fi
+        
+        # 최근 커밋 정보 추가 (있다면)
+        if [ -n "$(git log --oneline -1 --since='1 hour ago' 2>/dev/null)" ]; then
+            TASK_SUMMARY="$TASK_SUMMARY
+
+### 📝 최근 커밋
+\`\`\`
+$(git log --oneline -5 --since='1 hour ago')
+\`\`\`"
+        fi
+        
+        node "$HOOK_DIR/github-issue-manager.js" complete "$TASK_SUMMARY"
+        ;;
+        
+    "error")
+        echo "❌ 오류 발생 - 이슈 업데이트 중..."
+        
+        ERROR_DETAILS="### ❌ 오류 발생
+$TASK_SUMMARY
+
+**상태**: 오류로 인해 작업이 중단되었습니다.
+**다음 단계**: 오류를 해결한 후 작업을 재시작해야 합니다."
+        
+        node "$HOOK_DIR/github-issue-manager.js" update "$ERROR_DETAILS"
+        ;;
+        
+    "partial")
+        echo "⏳ 부분 완료 - 이슈 업데이트 중..."
+        
+        PARTIAL_DETAILS="### ⏳ 부분 완료
+$TASK_SUMMARY
+
+**상태**: 일부 작업이 완료되었습니다.
+**다음 단계**: 남은 작업을 계속 진행할 예정입니다."
+        
+        node "$HOOK_DIR/github-issue-manager.js" update "$PARTIAL_DETAILS"
+        ;;
+        
+    "progress")
+        echo "🔄 진행 상황 업데이트 중..."
+        
+        PROGRESS_DETAILS="### 🔄 진행 상황 업데이트
+$TASK_SUMMARY
+
+**상태**: 작업이 진행 중입니다."
+        
+        node "$HOOK_DIR/github-issue-manager.js" update "$PROGRESS_DETAILS"
+        ;;
+        
+    *)
+        echo "❓ 알 수 없는 상태 - 기본 업데이트 중..."
+        
+        DEFAULT_DETAILS="### 📝 상태 업데이트
+$TASK_SUMMARY
+
+**상태**: 작업 상태를 확인 중입니다."
+        
+        node "$HOOK_DIR/github-issue-manager.js" update "$DEFAULT_DETAILS"
+        ;;
+esac
+
+# 결과 출력
+if [ $? -eq 0 ]; then
+    echo "✅ 이슈 업데이트 완료"
+    echo "🔗 GitHub에서 업데이트된 내용을 확인할 수 있습니다."
+else
+    echo "⚠️  이슈 업데이트에 실패했습니다."
+fi
+
+echo "🏁 작업 완료 훅이 실행되었습니다."
