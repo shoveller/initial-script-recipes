@@ -4,8 +4,8 @@
   "description": "AWS infrastructure package using CDK",
   "main": "cdk.js",
   "bin": {
-    "aws-launch": "./scripts/launch.js",
-    "aws-destroy": "./scripts/destroy.js"
+    "aws-launch": "./scripts/launch.cjs",
+    "aws-destroy": "./scripts/destroy.cjs"
   },
   "scripts": {
     "bootstrap": "cdk bootstrap && cdk deploy --timeout 20 --require-approval never --concurrency 10",

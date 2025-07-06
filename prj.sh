@@ -395,6 +395,13 @@ setup_aws_infra_package() {
     copy_template_with_vars "aws-infra/lambda.ts" "lambda.ts" \
         "package_scope" "$package_scope"
     
+    echo -e "${GREEN}AWS 인프라 스크립트 디렉토리를 생성합니다...${NC}"
+    mkdir -p scripts
+
+    echo -e "${GREEN}AWS 인프라 글루 코드 스크립트를 복사합니다...${NC}"
+    copy_template "aws-infra/scripts/launch.cjs" "scripts/launch.cjs"
+    copy_template "aws-infra/scripts/destroy.cjs" "scripts/destroy.cjs"
+
     echo -e "${GREEN}AWS 인프라 템플릿 파일들이 다운로드되었습니다.${NC}"
     
     cd ../..
@@ -662,12 +669,10 @@ setup_telegram_workflows() {
     
     # Download telegram workflow template files
     copy_template "workflows/notify-telegram.yml" ".github/workflows/notify-telegram.yml"
-    copy_template "workflows/notify-telegram-test.yml" ".github/workflows/notify-telegram-test.yml"
+#    copy_template "workflows/notify-telegram-test.yml" ".github/workflows/notify-telegram-test.yml"
     
     echo -e "${GREEN}Telegram 워크플로우 파일들이 다운로드되었습니다.${NC}"
 }
-
-
 
 # Pure function to setup React Router web app
 setup_react_router_web() {
