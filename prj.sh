@@ -638,10 +638,10 @@ setup_react_router_web() {
     fi
 
     echo -e "${GREEN}eslint.config.mjs 파일을 생성합니다...${NC}"
-    copy_template "config/eslint.config.mjs" "eslint.config.mjs" "$package_scope"
+    copy_template "react-router/eslint.config.mjs" "eslint.config.mjs" "$package_scope"
 
     echo -e "${GREEN}prettier.config.mjs 파일을 생성합니다...${NC}"
-    copy_template "config/prettier.config.mjs" "prettier.config.mjs" "$package_scope"
+    copy_template "react-router/prettier.config.mjs" "prettier.config.mjs" "$package_scope"
 
     echo -e "${GREEN}tsconfig.json에 extends 설정을 추가합니다...${NC}"
     if command -v jq &> /dev/null; then

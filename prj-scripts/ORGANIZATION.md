@@ -7,10 +7,6 @@ Templates are now organized into namespace directories based on their function c
 - **aws-actions/** - AWS GitHub Actions workflows
   - `deploy-rr7-lambda-s3.yml` - AWS Lambda deployment workflow
 
-- **config/** - Configuration files for root project
-  - `eslint.config.mjs` - Root ESLint configuration
-  - `prettier.config.mjs` - Root Prettier configuration
-
 - **env/** - Environment configuration
   - `.env` - Environment variables template
 
@@ -34,6 +30,8 @@ Templates are now organized into namespace directories based on their function c
 - **react-router/** - React Router application templates
   - `error-boundary.tsx` - Error boundary component
   - `home.tsx` - Home route component
+  - `eslint.config.mjs` - React Router app ESLint configuration
+  - `prettier.config.mjs` - React Router app Prettier configuration
 
 - **scripts/** - Utility scripts
   - `format.mjs` - Code formatting script
@@ -61,13 +59,12 @@ Templates are now organized into namespace directories based on their function c
 Each namespace corresponds to specific functions in `prj.sh`:
 
 - `aws-actions/` ← `setup_aws_deployment_workflows()`
-- `config/` ← `setup_react_router_web()` (for app-specific configs)
 - `env/` ← `create_env_template()`
 - `eslint/` ← `setup_eslint_package()`
 - `aws-infra/` ← `setup_aws_infra_package()`
 - `prettier/` ← `setup_prettier_package()`
 - `project/` ← `create_project_readme()`
-- `react-router/` ← `setup_react_router_web()`
+- `react-router/` ← `setup_react_router_web()` (includes app-specific configs)
 - `scripts/` ← `setup_scripts_package()`, `setup_scripts_readme()`
 - `semantic-release/` ← `setup_semantic_release()`
 - `typescript/` ← `setup_typescript()`
