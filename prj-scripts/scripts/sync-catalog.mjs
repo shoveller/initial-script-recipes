@@ -5,11 +5,10 @@
   preinstall 단계에서 워크스페이스 전체의 디펜던시를 통일하는 일을 한다.
  */
 
-
-import { execSync } from 'child_process'
+import { execSync } from 'node:child_process'
 import { readFileSync, writeFileSync, readdirSync, statSync } from 'fs'
-import { join, dirname } from 'path'
-import { fileURLToPath } from 'url'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -180,7 +179,7 @@ function updateNodeVersionInWorkflow(filePath, newVersion) {
 function runCodemodCatalog() {
   try {
     console.log('🔄 pnpm codemod-catalog 실행 중...')
-    execSync('pnpx codemod pnpm/catalog', {
+    execSync('pnpx codemod pnpm/catalog --no-interactive', {
       cwd: rootDir,
       stdio: 'inherit'
     })
