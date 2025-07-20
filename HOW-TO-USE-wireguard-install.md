@@ -33,7 +33,7 @@ ssh -i your-key.pem ubuntu@your-server-ip
 
 ```bash
 # GitHub에서 직접 다운로드
-wget https://github.com/shoveller/initial-script-recipes/raw/wireguard-install.sh
+wget https://github.com/shoveller/initial-script-recipes/raw/main/wireguard-install.sh
 chmod +x wireguard-install.sh
 
 # 또는 git clone 후 사용
