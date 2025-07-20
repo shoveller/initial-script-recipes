@@ -27,6 +27,25 @@
 >       - 설정 변경 스크립트들
 >       - 백업 관리 스크립트
 
+### [wireguard-install.sh](./HOW-TO-USE-wireguard-install.md)
+> WireGuard VPN 설치 자동화 스크립트(AWS Lightsail 전용)
+>   1. 시스템 기본 설정
+>       - 관리자 패스워드 설정
+>       - WireGuard 패키지 설치
+>       - IP 포워딩 활성화
+>   2. VPN 서버 구성
+>       - 서버/클라이언트 키 생성
+>       - WireGuard 설정 파일 생성
+>       - 방화벽 설정 (ufw + AWS Lightsail)
+>   3. 클라이언트 관리
+>       - 첫 번째 클라이언트 자동 생성
+>       - QR 코드 생성 (모바일 설정)
+>       - 클라이언트 추가/제거 스크립트
+>   4. 관리 도구
+>       - 서비스 관리 스크립트
+>       - 백업/복원 스크립트
+>       - 연결 상태 모니터링
+
 ### [prj.sh](./HOW-TO-USE-prj-script.md)
 > 웹 프론트엔드 프로젝트 스케폴드 자동화 스크립트(osx 전용)
 
